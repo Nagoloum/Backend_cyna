@@ -49,7 +49,7 @@ export class SendEmailService {
       <p>Bonjour ${email},</p>
       <p>Nous sommes ravis de vous accueillir sur notre plateforme.</p>
       <p>Pour finaliser votre inscription, veuillez confirmer votre adresse email:</p>
-      <a href="http://localhost:3000/email-confirmation?token=${token}">Cliquer ici pour confirmer votre compte</a>
+      <a href="http://localhost:3000/api/auth/email-confirmation?token=${token}">Cliquer ici pour confirmer votre compte</a>
       <p>Merci de nous avoir choisis !</p>
       <p>Cordialement,</p>`,
     };
