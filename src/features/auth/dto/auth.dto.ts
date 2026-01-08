@@ -11,10 +11,10 @@ export class RegisterDto {
   password: string;
   @ApiProperty()
   @IsNotEmpty({ message: 'Prénom est obligatoire' })
-  firstname: string;
+  firstName: string;
   @ApiProperty()
   @IsNotEmpty({ message: 'Nom est obligatoire' })
-  lastname: string;
+  lastName: string;
 }
 @ApiSchema({ description: 'Description of the LoginDto schema' })
 export class LoginDto {

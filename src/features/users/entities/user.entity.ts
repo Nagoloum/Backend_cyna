@@ -5,9 +5,9 @@ import { UserRoles } from 'src/shared/common/user-roles.enum';
 @Schema({ timestamps: true })
 export class User extends Document {
   @Prop()
-  firstname: string;
+  firstName: string;
   @Prop()
-  lastname: string;
+  lastName: string;
 
   @Prop({ required: true, unique: true })
   email: string;

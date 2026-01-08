@@ -11,6 +11,7 @@ import { JwtService } from '@nestjs/jwt';
 import { config } from 'dotenv';
 
 config();
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -19,12 +20,10 @@ export class AuthService {
     private readonly sendEmailService: SendEmailService,
     private jwtService: JwtService,
   ) {}
+
   async login(loginDto: LoginDto) {
     try {
-      let matchPassword = false;
-      const user = await this.userModel
-        .findOne({ email: loginDto.email })
-        .exec();
+      const user = await this.userModel.findOne({ email: loginDto.email }).exec();
 
       if (!user) {
         return ApiResponse.error(
@@ -32,56 +31,72 @@ export class AuthService {
         );
       }
 
-      matchPassword = await bcrypt.compare(loginDto?.password, user?.password);
+      const matchPassword = await bcrypt.compare(loginDto.password, user.password);
 
       if (!matchPassword) {
         return ApiResponse.error('Votre mot de passe est incorrect');
       }
+
       if (!user.confirmed) {
         return ApiResponse.error(
-          'Veuillez vérifier votre boîte e-mail pour confirmer votre compte ou à contacter le support en cas de problème.',
+          'Veuillez vérifier votre boîte e-mail pour confirmer votre compte ou contacter le support.',
         );
       }
-      const accessToken = this.sharedService.accessToken(user);
-      return ApiResponse.success('connexion réussie', accessToken);
+
+      const payload = { email: user.email, sub: user._id };
+      const token = this.jwtService.sign(payload);
+
+      const userResponse = {
+        _id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+      };
+
+      return ApiResponse.success('Connexion réussie', { token, user: userResponse });
     } catch (error: any) {
-      return ApiResponse.error('Une erreur est survenue lors de la connexion ');
+      return ApiResponse.error('Une erreur est survenue lors de la connexion');
     }
   }
+
   async register(registerDto: RegisterDto) {
     try {
-      const user = await this.userModel
-        .findOne({ email: registerDto.email })
-        .exec();
+      const user = await this.userModel.findOne({ email: registerDto.email }).exec();
 
       if (user) {
-        return ApiResponse.error(
-          'Cet email est déjà utilisé, veuillez vous connecter',
-        );
+        return ApiResponse.error('Cet email est déjà utilisé, veuillez vous connecter');
       }
+
       if (!this.sharedService.isStrongPassword(registerDto.password)) {
         return ApiResponse.error(
           'Le mot de passe doit contenir au moins 8 caractères, une majuscule, une minuscule, un chiffre et un caractère spécial',
         );
       }
+
+      const hashedPassword = await bcrypt.hash(registerDto.password, 10);
+
       const newUser = new this.userModel({
-        ...registerDto,
-        password: await bcrypt.hash(registerDto.password, 10),
+        firstName: registerDto.firstName,
+        lastName: registerDto.lastName,
+        email: registerDto.email,
+        password: hashedPassword,
+        confirmed: false,
       });
+
       const savedUser = await newUser.save();
-      const tokenConfirmedEmail =
-        this.sharedService.tokenConfirmedEmail(savedUser);
-      await this.sendEmailService.confirmedEmail(
-        registerDto.email,
-        tokenConfirmedEmail,
-      );
+
+      const tokenConfirmedEmail = this.sharedService.tokenConfirmedEmail(savedUser);
+
+      await this.sendEmailService.confirmedEmail(registerDto.email, tokenConfirmedEmail);
+
       return ApiResponse.success(
         'Inscription réussie, vérifiez votre email pour confirmer votre compte',
       );
     } catch (error: any) {
-      return ApiResponse.error('Une erreur est survenue lors de la connexion ');
+      return ApiResponse.error("Une erreur est survenue lors de l'inscription");
     }
   }
+
   async emailConfirmation(token: string) {
     try {
       const payload = await this.jwtService.verifyAsync(token, {
@@ -100,9 +115,9 @@ export class AuthService {
         return ApiResponse.error('Ce lien de confirmation est invalide');
       }
 
-      return ApiResponse.success('Email confirmé, vous pouvez vous connecter');
+      return ApiResponse.success('Email confirmé, vous pouvez maintenant vous connecter');
     } catch (error: any) {
-      return ApiResponse.error('Une erreur est survenue lors de la connexion ');
+      return ApiResponse.error('Une erreur est survenue lors de la confirmation');
     }
   }
 }
