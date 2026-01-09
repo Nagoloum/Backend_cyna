@@ -9,6 +9,7 @@ import { SharedService } from 'src/shared/services/shared.service';
 import { SendEmailService } from 'src/shared/services/sendemail.service';
 import { JwtService } from '@nestjs/jwt';
 import { config } from 'dotenv';
+import { StringValue } from 'ms';
 
 config();
 
@@ -51,7 +52,10 @@ export class AuthService {
         role: user.role, // ← très important !
       };
 
-      const token = this.jwtService.sign(payload);
+      const token = this.jwtService.sign(payload, {
+        secret: process.env.ACCESS_TOKEN_SECRET_KEY!,
+        expiresIn: process.env.ACCESS_TOKEN_EXPIRE_TIME as StringValue,
+      });
 
       const userResponse = {
         _id: user._id,
@@ -67,7 +71,9 @@ export class AuthService {
         user: userResponse,
       });
     } catch (error: any) {
-      return ApiResponse.error('Une erreur est survenue lors de la connexion');
+      return ApiResponse.error(
+        'Une erreur est survenue lors de la connexion ' + error.message,
+      );
     }
   }
 
