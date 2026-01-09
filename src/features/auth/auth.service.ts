@@ -46,34 +46,13 @@ export class AuthService {
       // On ne bloque plus la connexion si !user.confirmed
       // On renvoie juste l'info dans la réponse
 
-      const payload = {
-        email: user.email,
-        sub: user._id,
-        role: user.role, // ← très important !
-      };
-
-      const token = this.jwtService.sign(payload, {
-        secret: process.env.ACCESS_TOKEN_SECRET_KEY!,
-        expiresIn: process.env.ACCESS_TOKEN_EXPIRE_TIME as StringValue,
-      });
-
-      const userResponse = {
-        _id: user._id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-        role: user.role, // ← on renvoie le rôle au frontend
-        confirmed: user.confirmed, // ← on renvoie aussi l'état de confirmation
-      };
-
+      const token = this.sharedService.accessToken(user);
       return ApiResponse.success('Connexion réussie', {
         token,
-        user: userResponse,
+        user,
       });
     } catch (error: any) {
-      return ApiResponse.error(
-        'Une erreur est survenue lors de la connexion ' + error.message,
-      );
+      return ApiResponse.error('Une erreur est survenue lors de la connexion ');
     }
   }
 
