@@ -18,7 +18,7 @@ export class AuthController {
   }
   @Get('email-confirmation')
   emailConfirmation(@Query('token') token: string) {
-    return this.authService.emailConfirmation(token); 
+    return this.authService.emailConfirmation(token);
   }
   // reset de mot de passe de l'utlisateur
   @Post('forgot-password')
@@ -33,6 +33,19 @@ export class AuthController {
   })
   resetforgotPassword(@Body("email") email: string) {
     return this.authService.forgotPassword(email);
+  }
+  @Post('change-password')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        password: { type: 'string', example: 'NewPassword@123' },
+      },
+      required: ['password'],
+    },
+  })
+  changePassword(@Query('token') token: string, @Body('password') password: string) {
+    return this.authService.resetPassword(token, password);
   }
 }
 
