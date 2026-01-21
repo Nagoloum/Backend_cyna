@@ -41,7 +41,7 @@ export class SharedService {
       email: user.email,
     };
 
-    return this.jwtService.sign(payload, {
+    return  this.jwtService.sign(payload, {
       secret: process.env.ACCESS_TOKEN_SECRET_KEY!,
       expiresIn: '24h' as StringValue,
     });
