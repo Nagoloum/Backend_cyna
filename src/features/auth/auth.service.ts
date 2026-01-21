@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ConsoleLogger, Injectable } from '@nestjs/common';
 import { LoginDto, RegisterDto } from './dto/auth.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import { User } from '../users/entities/user.entity';
@@ -10,6 +10,7 @@ import { SendEmailService } from 'src/shared/services/sendemail.service';
 import { JwtService } from '@nestjs/jwt';
 import { config } from 'dotenv';
 import { StringValue } from 'ms';
+import { Console } from 'console';
 
 config();
 
@@ -20,7 +21,7 @@ export class AuthService {
     private readonly sharedService: SharedService,
     private readonly sendEmailService: SendEmailService,
     private jwtService: JwtService,
-  ) {}
+  ) { }
 
   async login(loginDto: LoginDto) {
     try {
@@ -130,4 +131,69 @@ export class AuthService {
       );
     }
   }
+  async forgotPassword(currentEmail) {
+    try {
+      // une fois que j'ai email je verife s'il existe.
+      const currentUser = await this.userModel.findOne({ email: currentEmail }, 'email');
+      // Si l'utilisateur n'existe pas j'envoie un message d'erreur
+      if (!currentUser) {
+        return ApiResponse.error(
+          'Nous n’avons trouvé aucun compte associé à cette adresse e-mail.',
+        );
+      }
+      //Si l'utilisateur existe je l'envoie un mail de reset de password avec un token 
+      const createTokenForget = this.sharedService.tokenConfirmedEmail(currentUser);// création d'un tokebn 
+      await this.sendEmailService.sendResetPassword(currentUser.email, createTokenForget);// envoie du message de rest password
+      return ApiResponse.success(
+        'Veuillez vérifier votre adresse e-mail afin de finaliser l’opération.',
+      );
+
+    } catch (error: any) {
+      console.error('Erreur login:', error); // ← Ajoute ça
+      return ApiResponse.error('Une erreur est survenue lors de la connexion');
+    }
+  }
+ async resetPassword(token: string, newPassword: string) {
+  try {
+    // Vérification et décodage du token
+    const payload = await this.jwtService.verifyAsync(token, {
+      secret: process.env.ACCESS_TOKEN_SECRET_KEY,
+    });
+
+    // Récupération de l’email depuis le token
+    const currentEmail = payload.email;
+
+    // Récupération de l’utilisateur
+    const user = await this.userModel.findOne({ email: currentEmail });
+    if (!user) {
+      return ApiResponse.error('Utilisateur introuvable.');
+    }
+    // Vérification des règles du mot de passe
+    if (!this.sharedService.isStrongPassword(newPassword)) {
+      return ApiResponse.error(
+        'Le mot de passe doit contenir au moins 8 caractères, une majuscule, une minuscule, un chiffre et un caractère spécial.',
+      );
+    }
+
+    // Hachage du mot de passe
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Enregistrement du nouveau mot de passe
+    user.password = hashedPassword;
+    await user.save();
+
+    console.log(user);
+    console.log(newPassword);
+    console.log(hashedPassword);
+    return ApiResponse.success(
+      'Mot de passe réinitialisé avec succès.',
+    );
+
+  } catch (error) {
+    return ApiResponse.error(
+      'Token invalide ou expiré. Veuillez vérifier votre token.',
+    );
+  }
+}
+
 }
