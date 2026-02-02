@@ -22,7 +22,7 @@ export class UsersService {
       }
 
       return ApiResponse.success('Liste des utilisateurs récupérée', allUsers);
-    } catch (error) {
+    } catch (_error) {
       return ApiResponse.error(
         'Une erreur est survenue lors de la récupération : ',
       );
@@ -36,7 +36,7 @@ export class UsersService {
         return ApiResponse.error('Utilisateur introuvable');
       }
       return ApiResponse.success('Utilisateur trouvé avec succès', user);
-    } catch (error) {
+    } catch (_error) {
       return ApiResponse.error('ID invalide ou erreur de connexion');
     }
   }
@@ -53,7 +53,7 @@ export class UsersService {
         'Utilisateur mis à jour avec succès',
         updatedUser,
       );
-    } catch (error) {
+    } catch (_error) {
       return ApiResponse.error('Erreur lors de la mise à jour');
     }
   }
@@ -65,7 +65,7 @@ export class UsersService {
         return ApiResponse.error('Utilisateur introuvable');
       }
       return ApiResponse.success('Utilisateur supprimé avec succès');
-    } catch (error) {
+    } catch (_error) {
       return ApiResponse.error('Erreur lors de la suppression : ');
     }
   }
