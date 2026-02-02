@@ -1,43 +1,72 @@
 import { Injectable } from '@nestjs/common';
-import { CreateUserDto } from './dto/create-user.dto';
+
 import { UpdateUserDto } from './dto/update-user.dto';
-import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
 import { User } from './entities/user.entity';
-import { isValidObjectId, Model } from 'mongoose';
+import { InjectModel } from '@nestjs/mongoose';
 import { ApiResponse } from 'src/shared/responses/api-response';
+import { Console } from 'console';
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectModel(User.name) private readonly userModel: Model<User>,
   ) {}
-  create(createUserDto: CreateUserDto) {
-    return 'This action adds a new user';
-  }
-
-  findAll() {
-    return `This action returns all users`;
-  }
-
-  async findOne(id: string) {
+  async findAll() {
     try {
-      if (!isValidObjectId(id)) return ApiResponse.error(" L'id est invalide");
+      const allUsers = await this.userModel.find().select('-password').exec();
 
-      const user = await this.userModel.findById(id).exec();
-      if (!user) return ApiResponse.error('L"utilisateur n"existe pas');
-      return ApiResponse.success('Utilisateur trouvé', user);
+      // Mongoose renvoie [] si la collection est vide
+      if (allUsers.length === 0) {
+        return ApiResponse.success('Aucun utilisateur pour le moment', []);
+      }
+
+      return ApiResponse.success('Liste des utilisateurs récupérée', allUsers);
     } catch (error) {
       return ApiResponse.error(
-        "Une erreur est survenue lors de la recuperation de l'utilisateur",
+        'Une erreur est survenue lors de la récupération : ',
       );
     }
   }
 
-  update(id: number, updateUserDto: UpdateUserDto) {
-    return `This action updates a #${id} user`;
+  async findOne(id: string) {
+    try {
+      const user = await this.userModel.findById(id).select('-password').exec();
+      if (!user) {
+        return ApiResponse.error('Utilisateur introuvable');
+      }
+      return ApiResponse.success('Utilisateur trouvé avec succès', user);
+    } catch (error) {
+      return ApiResponse.error('ID invalide ou erreur de connexion');
+    }
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} user`;
+  async update(id: string, updateUserDto: UpdateUserDto) {
+    try {
+      const updatedUser = await this.userModel
+        .findByIdAndUpdate(id, updateUserDto, { new: true })
+        .exec();
+      if (!updatedUser) {
+        return ApiResponse.error('Utilisateur introuvable pour la mise à jour');
+      }
+      return ApiResponse.success(
+        'Utilisateur mis à jour avec succès',
+        updatedUser,
+      );
+    } catch (error) {
+      return ApiResponse.error('Erreur lors de la mise à jour');
+    }
+  }
+
+  async remove(id: string) {
+    try {
+      const deletedUser = await this.userModel.findByIdAndDelete(id).exec();
+      if (!deletedUser) {
+        return ApiResponse.error('Utilisateur introuvable');
+      }
+      return ApiResponse.success('Utilisateur supprimé avec succès');
+    } catch (error) {
+      return ApiResponse.error('Erreur lors de la suppression : ');
+    }
   }
 }
