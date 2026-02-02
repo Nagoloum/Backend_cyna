@@ -1,9 +1,23 @@
 import { Module } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { ProductsController } from './products.controller';
+import { Product, ProductSchema } from './entities/product.entity';
+import { MongooseModule } from '@nestjs/mongoose';
+import { CategoriesModule } from '../categories/categories.module';
+import { UsersModule } from '../users/users.module';
+import { JwtService } from '@nestjs/jwt';
+import { SharedService } from 'src/shared/services/shared.service';
+import { ServicesModule } from '../services/services.module';
 
 @Module({
+  imports: [
+    MongooseModule.forFeature([{ name: Product.name, schema: ProductSchema }]),
+    CategoriesModule,
+    UsersModule,
+    ServicesModule,
+  ],
   controllers: [ProductsController],
-  providers: [ProductsService],
+  providers: [ProductsService, SharedService, JwtService],
+  exports: [ProductsService, MongooseModule],
 })
 export class ProductsModule {}

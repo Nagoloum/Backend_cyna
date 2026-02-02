@@ -1,6 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { Injectable } from '@nestjs/common';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
@@ -19,12 +16,26 @@ export class CategoriesService {
   ) {}
   async create(createCategoryDto: CreateCategoryDto) {
     try {
-      const existingCategory = await this.categoryModel.exists({
-        name: createCategoryDto.name,
-      });
+      const existingCategory: Category | null =
+        await this.categoryModel.findOne(
+          {
+            name: createCategoryDto.name,
+          },
+          '_id order',
+        );
       if (existingCategory) {
         return ApiResponse.error('Cette catégorie existe deja');
       }
+      /** Vérifier si deux catégories n'ont pas le même ordre */
+      const existingCategoryOrder = await this.categoryModel.findOne({
+        order: createCategoryDto.order,
+      });
+      if (existingCategoryOrder) {
+        return ApiResponse.error(
+          'Une catégorie a déjà cet ordre, veuillez choisir un autre ordre',
+        );
+      }
+
       createCategoryDto.slug = this.sharedService.generateSlug(
         createCategoryDto.name,
       );
@@ -38,7 +49,7 @@ export class CategoriesService {
 
   async findAll(queryDto: QueryDto) {
     try {
-      const { page, limit, search, sortBy, sortOrder } = queryDto;
+      const { page = 1, limit = 10, search, sortBy, sortOrder } = queryDto;
       const skip = (page - 1) * limit;
 
       const whereQuery: any = {};

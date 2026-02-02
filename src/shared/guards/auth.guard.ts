@@ -36,7 +36,7 @@ export class AuthGuard implements CanActivate {
       // so that we can access it in our route handlers
       // request['user'] = payload;
 
-      const currentUser = this.userService.findOne(payload.id);
+      const currentUser = await this.userService.findOne(payload.id);
       request['currentUser'] = currentUser;
     } catch {
       throw new UnauthorizedException(

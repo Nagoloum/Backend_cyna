@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { CreateServiceDto } from './dto/create-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { SharedService } from 'src/shared/services/shared.service';
 import { Service } from './entities/service.entity';
 import { ApiResponse } from 'src/shared/responses/api-response';
@@ -37,8 +37,8 @@ export class ServicesService {
         ...createServiceDto,
         category: categoryId,
       });
-      await createdService.save();
-      return ApiResponse.success('Service crée', createdService);
+      const savedService = await createdService.save();
+      return ApiResponse.success('Service crée', savedService);
     } catch (error) {
       return ApiResponse.error('Erreur lors de la création du service');
     }
@@ -46,7 +46,7 @@ export class ServicesService {
 
   async findAll(queryDto: QueryDto) {
     try {
-      const { page, limit, search, sortBy, sortOrder } = queryDto;
+      const { page = 1, limit = 10, search, sortBy, sortOrder } = queryDto;
       const skip = (page - 1) * limit;
 
       const whereQuery: any = {};
@@ -91,7 +91,9 @@ export class ServicesService {
       return ApiResponse.error('Erreur lors de la récupération des services');
     }
   }
-
+  async findOneById(id: string): Promise<{ _id: Types.ObjectId } | null> {
+    return await this.serviceModel.findOne({ _id: id }, '_id');
+  }
   async findOne(slug: string) {
     try {
       const service = await this.serviceModel.findOne({ slug });
@@ -106,9 +108,14 @@ export class ServicesService {
 
   async update(slug: string, updateServiceDto: UpdateServiceDto) {
     try {
+      const categoryId = resolveIdOrThrow(
+        updateServiceDto.categoryId,
+        (id) => this.categoryService.findOneById(id),
+        'Catégorie',
+      );
       const service = await this.serviceModel.findOneAndUpdate(
         { slug },
-        updateServiceDto,
+        { ...updateServiceDto, category: categoryId },
         { new: true },
       );
       if (!service) {
