@@ -181,10 +181,6 @@ export class AuthService {
     // Enregistrement du nouveau mot de passe
     user.password = hashedPassword;
     await user.save();
-
-    console.log(user);
-    console.log(newPassword);
-    console.log(hashedPassword);
     return ApiResponse.success(
       'Mot de passe réinitialisé avec succès.',
     );
