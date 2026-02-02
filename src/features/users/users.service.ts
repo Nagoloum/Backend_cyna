@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
 
 import { UpdateUserDto } from './dto/update-user.dto';
-import { Model } from 'mongoose';
+import { isValidObjectId, Model } from 'mongoose';
 import { User } from './entities/user.entity';
 import { InjectModel } from '@nestjs/mongoose';
 import { ApiResponse } from 'src/shared/responses/api-response';
-import { Console } from 'console';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class UsersService {
@@ -41,19 +41,41 @@ export class UsersService {
     }
   }
 
-  async update(id: string, updateUserDto: UpdateUserDto) {
+  async update(id: string, updateUserDto: UpdateUserDto, currentUser: any) {
     try {
+      if (!isValidObjectId(id)) {
+        return ApiResponse.error("L'id est invalide");
+      }
+
+      const user = await this.userModel.findById(id, '_id role').exec();
+      if (!user) {
+        return ApiResponse.error('Utilisateur introuvable');
+      }
+
+      // --- 2) Autorisations ---
+      const isAdmin = currentUser?.data?.roles?.includes('ADMIN');
+      const isOwner = user.id === currentUser?.data?.id?.toString();
+      if (!isOwner && !isAdmin) {
+        return ApiResponse.error(
+          'Vous ne pouvais pas modifier cet utilisateur',
+        );
+      }
+
+      // Mise à jour du mot de passe si fourni
+      if (updateUserDto.password) {
+        updateUserDto.password = await bcrypt.hash(updateUserDto.password, 10);
+      }
+
       const updatedUser = await this.userModel
         .findByIdAndUpdate(id, updateUserDto, { new: true })
+        .select('-password')
         .exec();
-      if (!updatedUser) {
-        return ApiResponse.error('Utilisateur introuvable pour la mise à jour');
-      }
+
       return ApiResponse.success(
         'Utilisateur mis à jour avec succès',
         updatedUser,
       );
-    } catch (_error) {
+    } catch (error) {
       return ApiResponse.error('Erreur lors de la mise à jour');
     }
   }
