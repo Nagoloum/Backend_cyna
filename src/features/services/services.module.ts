@@ -6,15 +6,16 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { CategoriesModule } from '../categories/categories.module';
 import { SharedService } from 'src/shared/services/shared.service';
 import { JwtService } from '@nestjs/jwt';
-import { UsersService } from '../users/users.service';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: Service.name, schema: ServiceSchema }]),
     CategoriesModule,
+    UsersModule,
   ],
   controllers: [ServicesController],
-  providers: [ServicesService, SharedService, JwtService, UsersService],
+  providers: [ServicesService, SharedService, JwtService],
   exports: [ServicesService, MongooseModule],
 })
 export class ServicesModule {}
