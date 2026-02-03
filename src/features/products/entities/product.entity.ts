@@ -31,6 +31,9 @@ export class Product extends Document {
   @Prop({ type: Boolean, default: false })
   priority: boolean;
 
+  @Prop()
+  order: number;
+
   @Prop({ type: Types.ObjectId, ref: 'Service', required: true })
   service: Service;
 }
