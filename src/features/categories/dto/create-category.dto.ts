@@ -1,19 +1,24 @@
 import { ApiProperty, ApiPropertyOptional, ApiSchema } from '@nestjs/swagger';
-import { IsString } from 'class-validator';
+import { IsEmpty, IsNotEmpty, IsString } from 'class-validator';
 
 @ApiSchema({ description: 'Data Transfer Object pour créer une catégorie' })
 export class CreateCategoryDto {
-  @IsString({ message: 'Le nom est obligatoire' })
+  @IsNotEmpty({ message: 'Le nom est obligatoire' })
   @ApiProperty()
   name: string;
-  @ApiProperty()
-  slug: string;
-  @ApiPropertyOptional()
-  image: string;
+
+  @ApiProperty({
+    type: 'string',
+    format: 'binary',
+    description: 'Image uniquement (JPG, PNG, WebP), max 2Mo',
+    required: true,
+  })
+  newImage: string;
 
   @ApiPropertyOptional()
   description: string;
 
-  @ApiPropertyOptional()
+  @ApiProperty()
+  @IsNotEmpty({ message: 'L’ordre est obligatoire' })
   order: number;
 }

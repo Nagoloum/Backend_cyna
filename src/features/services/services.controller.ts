@@ -17,7 +17,9 @@ import { UserRoles } from 'src/shared/common/user-roles.enum';
 import { AuthGuard } from 'src/shared/guards/auth.guard';
 import { AuthorizeGuard } from 'src/shared/guards/authorization.guard';
 import { QueryDto } from 'src/shared/dto/query.dto';
-
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+@ApiTags('Services')
+@ApiBearerAuth()
 @Controller('services')
 export class ServicesController {
   constructor(private readonly servicesService: ServicesService) {}

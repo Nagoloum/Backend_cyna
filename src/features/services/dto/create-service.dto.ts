@@ -7,8 +7,6 @@ export class CreateServiceDto {
   @ApiProperty()
   name: string;
 
-  @ApiProperty()
-  slug: string;
   @ApiPropertyOptional()
   TechFile: string;
 

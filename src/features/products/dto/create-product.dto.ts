@@ -1,4 +1,4 @@
-import { ApiProperty, ApiSchema } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, ApiSchema } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsString,
@@ -20,11 +20,8 @@ export class CreateProductDto {
 
   @IsString()
   @IsNotEmpty({ message: 'Le nom du produit est obligatoire' })
+  @ApiProperty()
   name: string;
-
-  @IsString()
-  @IsNotEmpty({ message: 'Le slug du produit est obligatoire' })
-  slug: string;
 
   @ApiProperty({ type: [ImageDto] })
   @ValidateNested({ each: true })
@@ -34,23 +31,25 @@ export class CreateProductDto {
   @IsNumber()
   @Min(0)
   @IsNotEmpty()
+  @ApiProperty()
   priceMonth: number;
 
   @IsNumber()
   @Min(0)
   @IsNotEmpty()
+  @ApiProperty()
   priceYear: number;
 
   @IsNumber()
   @Min(0)
-  @IsOptional()
+  @ApiProperty()
   stock?: number;
 
   @IsBoolean()
-  @IsOptional()
+  @ApiPropertyOptional()
   is_selected?: boolean;
 
   @IsBoolean()
-  @IsOptional()
+  @ApiPropertyOptional()
   priority?: boolean;
 }
