@@ -25,16 +25,17 @@ export class ServicesService {
       if (existingService) {
         return ApiResponse.error('Ce service existe deja');
       }
-      createServiceDto.slug = this.sharedService.generateSlug(
-        createServiceDto.name,
-      );
-      const categoryId = resolveIdOrThrow(
+      const slug = this.sharedService.generateSlug(createServiceDto.name);
+      const categoryId = await resolveIdOrThrow(
         createServiceDto.categoryId,
         (id) => this.categoryService.findOneById(id),
         'Catégorie',
       );
+      console.log(categoryId);
+
       const createdService = new this.serviceModel({
         ...createServiceDto,
+        slug,
         category: categoryId,
       });
       const savedService = await createdService.save();
@@ -108,7 +109,7 @@ export class ServicesService {
 
   async update(slug: string, updateServiceDto: UpdateServiceDto) {
     try {
-      const categoryId = resolveIdOrThrow(
+      const categoryId = await resolveIdOrThrow(
         updateServiceDto.categoryId,
         (id) => this.categoryService.findOneById(id),
         'Catégorie',

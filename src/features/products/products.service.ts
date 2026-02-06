@@ -20,27 +20,48 @@ export class ProductsService {
   async create(createProductDto: CreateProductDto) {
     try {
       const service = await this.productModel.exists({
-        slug: createProductDto.slug,
+        name: createProductDto.name,
       });
       if (!service) {
         return ApiResponse.error('Service not found');
       }
-      createProductDto.slug = this.sharedService.generateSlug(
-        createProductDto.name,
-      );
-      const serviceId = resolveIdOrThrow(
+      const slug = this.sharedService.generateSlug(createProductDto.name);
+      const serviceId = await resolveIdOrThrow(
         createProductDto.serviceId,
         (id) => this.servicesService.findOneById(id),
         'Service',
       );
       const createdProduct = new this.productModel({
         ...createProductDto,
+        slug,
         service: serviceId,
       });
       const savedProduct = await createdProduct.save();
       return ApiResponse.success('Produit crée avec succès', savedProduct);
     } catch (error) {
       return ApiResponse.error('Erreur lors de la création du produit');
+    }
+  }
+
+  async productByOrder() {
+    try {
+      const product = await this.productModel
+        .find(
+          {
+            priority: true,
+          },
+          'name slug image order',
+        )
+        .sort({ order: 1 })
+        .exec();
+      if (!product) {
+        return ApiResponse.error('Produit non trouvée');
+      }
+      return ApiResponse.success('Produit récupérée avec succès', product);
+    } catch (error) {
+      return ApiResponse.error(
+        'Erreur lors de la récupération des produits par ordre',
+      );
     }
   }
 
@@ -106,7 +127,7 @@ export class ProductsService {
 
   async update(slug: string, updateProductDto: UpdateProductDto) {
     try {
-      const serviceId = resolveIdOrThrow(
+      const serviceId = await resolveIdOrThrow(
         updateProductDto.serviceId,
         (id) => this.servicesService.findOneById(id),
         'Service',

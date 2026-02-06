@@ -17,7 +17,10 @@ import { UserRoles } from 'src/shared/common/user-roles.enum';
 import { AuthGuard } from 'src/shared/guards/auth.guard';
 import { AuthorizeGuard } from 'src/shared/guards/authorization.guard';
 import { QueryDto } from 'src/shared/dto/query.dto';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
+@ApiTags('Products')
+@ApiBearerAuth()
 @Controller('products')
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
@@ -32,6 +35,11 @@ export class ProductsController {
   @Get()
   findAll(@Query() queryDto: QueryDto) {
     return this.productsService.findAll(queryDto);
+  }
+
+  @Get('product-by-order')
+  productByOrder() {
+    return this.productsService.productByOrder();
   }
 
   @Get(':slug')
