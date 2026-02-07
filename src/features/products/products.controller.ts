@@ -75,12 +75,26 @@ export class ProductsController {
 
   @AuthorizeRoles(UserRoles.ADMIN)
   @UseGuards(AuthGuard, AuthorizeGuard)
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(
+    FilesInterceptor('images', 10, {
+      storage: memoryStorage(),
+      fileFilter: (req, file, cb) => {
+        if (!file.mimetype.match(/\/(jpg|jpeg|png|webp)$/)) {
+          return cb(new BadRequestException('Format non supporté'), false);
+        }
+        cb(null, true);
+      },
+    }),
+  )
   @Patch(':slug')
   update(
     @Param('slug') slug: string,
-    @Body() updateProductDto: UpdateProductDto,
+    @Body(FormDataTransformPipe, ValidationPipe)
+    updateProductDto: UpdateProductDto,
+    @UploadedFiles() files: Express.Multer.File[], // Note le pluriel ici
   ) {
-    return this.productsService.update(slug, updateProductDto);
+    return this.productsService.update(slug, updateProductDto, files);
   }
 
   @AuthorizeRoles(UserRoles.ADMIN)
