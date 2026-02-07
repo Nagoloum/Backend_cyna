@@ -9,10 +9,15 @@ import { QueryDto } from 'src/shared/dto/query.dto';
 import { SharedService } from 'src/shared/services/shared.service';
 import * as fs from 'fs';
 import * as path from 'path';
+import { Product } from '../products/entities/product.entity';
+import { Service } from '../services/entities/service.entity';
 @Injectable()
 export class CategoriesService {
   constructor(
     @InjectModel(Category.name) private categoryModel: Model<Category>,
+    @InjectModel(Product.name) private productModel: Model<Product>,
+    @InjectModel(Service.name) private serviceModel: Model<Service>,
+
     private readonly sharedService: SharedService,
   ) {}
   async create(
@@ -147,6 +152,51 @@ export class CategoriesService {
   }
   async findOneById(id: string): Promise<{ _id: Types.ObjectId } | null> {
     return await this.categoryModel.findOne({ _id: id }, '_id');
+  }
+
+  async findCateroryBySlug(slug: string) {
+    try {
+      const category = await this.categoryModel.findOne(
+        { slug: slug },
+        'name slug image description',
+      );
+
+      if (!category) {
+        return ApiResponse.error('Catégorie non trouvée');
+      }
+
+      const services = await this.serviceModel.find({
+        category: category._id,
+      });
+      const serviceIds = services.map((s) => s._id);
+
+      // Récupération avec Tri Intelligent
+      const products = await this.productModel
+        .find(
+          { service: { $in: serviceIds } },
+          'name slug priceMonth images stock priority order', // On ajoute stock et priority pour le front
+        )
+        .sort({
+          priority: -1, // Prioritaires en premier (true > false)
+          stock: -1, // Stock disponible avant rupture (si stock > 0)
+          order: 1, // Ordre manuel défini en back-office
+        });
+
+      // Optionnel : Forcer les stocks épuisés à la toute fin manuellement
+      // si le tri Mongoose ne suffit pas pour ton besoin précis
+      const sortedProducts = products.sort((a, b) => {
+        if (a.stock === 0 && b.stock > 0) return 1;
+        if (a.stock > 0 && b.stock === 0) return -1;
+        return 0;
+      });
+
+      return ApiResponse.success('Catégorie et produits trouvés avec succès', {
+        category,
+        products: sortedProducts,
+      });
+    } catch (error) {
+      return ApiResponse.error('Erreur lors de la récupération');
+    }
   }
   async findOne(slug: string) {
     try {
