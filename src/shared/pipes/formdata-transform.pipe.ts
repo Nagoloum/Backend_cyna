@@ -19,46 +19,60 @@ export class FormDataTransformPipe implements PipeTransform {
 
   private normalizeFormData(body: Record<string, any>): Record<string, any> {
     const out: Record<string, any> = {};
+
     for (const [key, val] of Object.entries(body)) {
-      // Valeur vide → undefined
-      if (typeof val === 'string' && val.trim() === '') {
-        out[key] = undefined;
-        continue;
-      }
+      // 1. Gestion des valeurs nulles ou vides
       if (val === undefined || val === null) {
         out[key] = val;
         continue;
       }
-      // Boolean strings
-      if (val === 'true' || val === 'false') {
-        out[key] = val === 'true';
+
+      if (typeof val === 'string' && val.trim() === '') {
+        out[key] = undefined;
         continue;
       }
-      // Integer
-      if (typeof val === 'string' && /^[+-]?\d+$/.test(val)) {
-        out[key] = parseInt(val, 10);
-        continue;
-      }
-      // Float
-      if (typeof val === 'string' && /^[+-]?\d*\.\d+$/.test(val)) {
-        out[key] = parseFloat(val);
-        continue;
-      }
-      // JSON strings (arrays/objects)
-      if (
-        typeof val === 'string' &&
-        (val.startsWith('[') || val.startsWith('{'))
-      ) {
-        try {
-          out[key] = JSON.parse(val);
+
+      // On prépare une version nettoyée pour les tests suivants
+      const trimmedVal = typeof val === 'string' ? val.trim() : val;
+
+      // 2. Booleans (plus robuste avec toLowerCase)
+      if (typeof trimmedVal === 'string') {
+        const lower = trimmedVal.toLowerCase();
+        if (lower === 'true' || lower === 'false') {
+          out[key] = lower === 'true';
           continue;
-        } catch (err) {
-          // Si parse échoue, garde la string
         }
       }
-      // Garde la valeur originale
+
+      // 3. Nombres (Entiers et Flottants en une seule fois)
+      // On vérifie si la string est un nombre valide et n'est pas un MongoID (longue string hex)
+      if (
+        typeof trimmedVal === 'string' &&
+        trimmedVal !== '' &&
+        !isNaN(Number(trimmedVal)) &&
+        !/^[0-9a-fA-F]{24}$/.test(trimmedVal) // Évite de transformer les IDs MongoDB en nombres
+      ) {
+        out[key] = Number(trimmedVal);
+        continue;
+      }
+
+      // 4. JSON (Tableaux et Objets)
+      if (
+        typeof trimmedVal === 'string' &&
+        (trimmedVal.startsWith('[') || trimmedVal.startsWith('{'))
+      ) {
+        try {
+          out[key] = JSON.parse(trimmedVal);
+          continue;
+        } catch (err) {
+          // En cas d'erreur, on laisse la string brute
+        }
+      }
+
+      // 5. Valeur par défaut
       out[key] = val;
     }
+
     return out;
   }
 }

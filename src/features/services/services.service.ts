@@ -31,7 +31,6 @@ export class ServicesService {
         (id) => this.categoryService.findOneById(id),
         'Catégorie',
       );
-      console.log(categoryId);
 
       const createdService = new this.serviceModel({
         ...createServiceDto,
@@ -41,7 +40,9 @@ export class ServicesService {
       const savedService = await createdService.save();
       return ApiResponse.success('Service crée', savedService);
     } catch (error) {
-      return ApiResponse.error('Erreur lors de la création du service');
+      return ApiResponse.error(
+        'Erreur lors de la création du service : ' + error.message,
+      );
     }
   }
 

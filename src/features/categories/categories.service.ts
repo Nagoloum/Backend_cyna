@@ -202,11 +202,11 @@ export class CategoriesService {
       }
 
       // 3. Mise à jour du slug si le nom a changé
-      if (updateCategoryDto.name && updateCategoryDto.name !== category.name) {
-        updateCategoryDto['slug'] = this.sharedService.generateSlug(
-          updateCategoryDto.name,
-        );
-      }
+      // if (updateCategoryDto.name && updateCategoryDto.name !== category.name) {
+      //   updateCategoryDto['slug'] = this.sharedService.generateSlug(
+      //     updateCategoryDto.name,
+      //   );
+      // }
 
       // 4. Mise à jour en BDD
       const updatedCategory = await this.categoryModel.findOneAndUpdate(
@@ -261,11 +261,8 @@ export class CategoriesService {
           try {
             fs.unlinkSync(fullPath);
           } catch (fileError) {
-            // On log l'erreur de fichier mais on ne bloque pas la réponse
-            // car la catégorie est déjà supprimée en BDD
-            console.error(
-              `Erreur lors de la suppression du fichier : ${fullPath}`,
-              fileError,
+            return ApiResponse.error(
+              'Une erreur est survenue lors de la suppression de l’image',
             );
           }
         }

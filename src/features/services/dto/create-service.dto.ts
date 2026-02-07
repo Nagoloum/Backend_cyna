@@ -1,9 +1,9 @@
 import { ApiProperty, ApiPropertyOptional, ApiSchema } from '@nestjs/swagger';
-import { IsString } from 'class-validator';
+import { IsNotEmpty, IsString } from 'class-validator';
 
 @ApiSchema({ description: 'Data Transfer Object pour créer un service' })
 export class CreateServiceDto {
-  @IsString({ message: 'Le nom est obligatoire' })
+  @IsNotEmpty({ message: 'Le nom est obligatoire' })
   @ApiProperty()
   name: string;
 
@@ -17,5 +17,6 @@ export class CreateServiceDto {
   available: boolean;
 
   @ApiProperty()
+  @IsNotEmpty({ message: "L'ID de la categorie est obligatoire" })
   categoryId: string;
 }

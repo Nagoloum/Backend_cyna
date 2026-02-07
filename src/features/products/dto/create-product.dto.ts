@@ -23,33 +23,32 @@ export class CreateProductDto {
   @ApiProperty()
   name: string;
 
-  @ApiProperty({ type: [ImageDto] })
-  @ValidateNested({ each: true })
-  @Type(() => ImageDto)
-  images: ImageDto[];
+  @ApiProperty({
+    type: 'array',
+    items: { type: 'string', format: 'binary' },
+    description: 'Sélectionnez plusieurs images pour le produit',
+    required: false, // Informe Swagger que ce n'est pas bloquant côté Body
+  })
+  @IsOptional() // Empêche l'erreur si le champ est vide dans le Body
+  images?: any;
 
-  @IsNumber()
-  @Min(0)
   @IsNotEmpty()
   @ApiProperty()
   priceMonth: number;
 
-  @IsNumber()
-  @Min(0)
   @IsNotEmpty()
   @ApiProperty()
   priceYear: number;
 
-  @IsNumber()
-  @Min(0)
+  @IsOptional() // Permet de passer si le champ est vide dans Swagger
   @ApiProperty()
-  stock?: number;
+  stock: number;
 
-  @IsBoolean()
+  @IsOptional() // Très important pour le multipart
   @ApiPropertyOptional()
-  is_selected?: boolean;
+  is_selected: boolean;
 
-  @IsBoolean()
+  @IsOptional()
   @ApiPropertyOptional()
-  priority?: boolean;
+  priority: boolean;
 }
