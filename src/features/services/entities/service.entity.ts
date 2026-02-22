@@ -19,7 +19,7 @@ export class Service extends Document {
   @Prop({ default: true })
   available: boolean;
   @Prop({ type: Types.ObjectId, ref: 'Category' })
-  category: Category;
+  category: Types.ObjectId;
 }
 
 export const ServiceSchema = SchemaFactory.createForClass(Service);

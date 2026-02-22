@@ -8,16 +8,23 @@ import {
   Delete,
   UseGuards,
   Query,
+  UseInterceptors,
+  UploadedFiles,
+  ValidationPipe,
+  BadRequestException,
 } from '@nestjs/common';
 import { CategoriesService } from './categories.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import { AuthorizeRoles } from 'src/shared/decorators/authorize-roles.decorator';
 import { AuthGuard } from 'src/shared/guards/auth.guard';
 import { UserRoles } from 'src/shared/common/user-roles.enum';
 import { AuthorizeGuard } from 'src/shared/guards/authorization.guard';
 import { QueryDto } from 'src/shared/dto/query.dto';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
+import { FormDataTransformPipe } from 'src/shared/pipes/formdata-transform.pipe';
+import { memoryStorage } from 'multer';
 
 @ApiTags('Categories')
 @ApiBearerAuth()
@@ -27,9 +34,26 @@ export class CategoriesController {
 
   @AuthorizeRoles(UserRoles.ADMIN)
   @UseGuards(AuthGuard, AuthorizeGuard)
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(
+    FileFieldsInterceptor([{ name: 'newImage', maxCount: 1 }], {
+      storage: memoryStorage(), // Le fichier n'est pas écrit sur le disque ici
+      limits: { fileSize: 2 * 1024 * 1024 },
+      fileFilter: (req, file, cb) => {
+        if (!file.mimetype.match(/\/(jpg|jpeg|png|webp)$/)) {
+          return cb(new BadRequestException('Format invalide'), false);
+        }
+        cb(null, true);
+      },
+    }),
+  )
   @Post()
-  create(@Body() createCategoryDto: CreateCategoryDto) {
-    return this.categoriesService.create(createCategoryDto);
+  create(
+    @Body(FormDataTransformPipe, ValidationPipe)
+    createCategoryDto: CreateCategoryDto,
+    @UploadedFiles() files: { newImage?: Express.Multer.File[] },
+  ) {
+    return this.categoriesService.create(createCategoryDto, files);
   }
 
   // @AuthorizeRoles(UserRoles.ADMIN)
@@ -39,6 +63,11 @@ export class CategoriesController {
     return this.categoriesService.findAll(queryDto);
   }
 
+  @Get('category-by-order')
+  categoryByOrder() {
+    return this.categoriesService.categoryByOrder();
+  }
+
   @Get(':slug')
   findOne(@Param('slug') slug: string) {
     return this.categoriesService.findOne(slug);
@@ -46,12 +75,30 @@ export class CategoriesController {
 
   @AuthorizeRoles(UserRoles.ADMIN)
   @UseGuards(AuthGuard, AuthorizeGuard)
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(
+    FileFieldsInterceptor([{ name: 'newImage', maxCount: 1 }], {
+      storage: memoryStorage(), // Le fichier n'est pas écrit sur le disque ici
+      limits: { fileSize: 2 * 1024 * 1024 },
+      fileFilter: (req, file, cb) => {
+        if (!file.mimetype.match(/\/(jpg|jpeg|png|webp)$/)) {
+          return cb(new BadRequestException('Format invalide'), false);
+        }
+        cb(null, true);
+      },
+    }),
+  )
   @Patch(':slug')
   update(
+    @UploadedFiles()
+    files: {
+      newImage?: Express.Multer.File[];
+    },
     @Param('slug') slug: string,
-    @Body() updateCategoryDto: UpdateCategoryDto,
+    @Body(FormDataTransformPipe, ValidationPipe)
+    updateCategoryDto: UpdateCategoryDto,
   ) {
-    return this.categoriesService.update(slug, updateCategoryDto);
+    return this.categoriesService.update(slug, updateCategoryDto, files);
   }
 
   @AuthorizeRoles(UserRoles.ADMIN)

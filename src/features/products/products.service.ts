@@ -9,7 +9,9 @@ import { Model } from 'mongoose';
 import { ApiResponse } from 'src/shared/responses/api-response';
 import { resolveIdOrThrow } from 'src/shared/generic/resolveId';
 import { QueryDto } from 'src/shared/dto/query.dto';
-
+import * as fs from 'fs';
+import * as path from 'path';
+import { ImageDto } from 'src/shared/dto';
 @Injectable()
 export class ProductsService {
   constructor(
@@ -17,30 +19,97 @@ export class ProductsService {
     private readonly sharedService: SharedService,
     private readonly servicesService: ServicesService,
   ) {}
-  async create(createProductDto: CreateProductDto) {
+  async create(
+    createProductDto: CreateProductDto,
+    files: Express.Multer.File[],
+  ) {
+    const savedFiles: string[] = []; // Pour garder trace en cas d'erreur (rollback)
+
     try {
-      const service = await this.productModel.exists({
-        slug: createProductDto.slug,
+      // 1. Vérification d'existence
+      const existingProduct = await this.productModel.exists({
+        name: createProductDto.name,
       });
-      if (!service) {
-        return ApiResponse.error('Service not found');
+      if (existingProduct) {
+        return ApiResponse.error('Un produit avec ce nom existe déjà');
       }
-      createProductDto.slug = this.sharedService.generateSlug(
-        createProductDto.name,
-      );
-      const serviceId = resolveIdOrThrow(
+
+      // 2. Résolution du Service
+      const serviceId = await resolveIdOrThrow(
         createProductDto.serviceId,
         (id) => this.servicesService.findOneById(id),
         'Service',
       );
+
+      // 3. Stockage des images physiques
+      const uploadDir = './storage/products';
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+
+      const imageObjects: ImageDto[] = [];
+      if (files && files.length > 0) {
+        for (const file of files) {
+          const uniqueSuffix =
+            Date.now() + '-' + Math.round(Math.random() * 1e9);
+          const fileName = `prod-${uniqueSuffix}${path.extname(file.originalname)}`;
+          const fullPath = path.join(uploadDir, fileName);
+          const relativePath = `storage/products/${fileName}`;
+
+          // Écriture disque
+          fs.writeFileSync(fullPath, file.buffer);
+          savedFiles.push(fullPath); // On mémorise le chemin absolu pour le rollback
+
+          // On prépare l'objet pour le tableau 'images' du DTO/Schema
+          imageObjects.push({
+            url: relativePath,
+          });
+        }
+      }
+
+      // 4. Création en BDD
+      const slug = this.sharedService.generateSlug(createProductDto.name);
       const createdProduct = new this.productModel({
         ...createProductDto,
+        slug,
         service: serviceId,
+        images: imageObjects, // On remplace le champ images par nos nouveaux objets
       });
+
       const savedProduct = await createdProduct.save();
-      return ApiResponse.success('Produit crée avec succès', savedProduct);
+      return ApiResponse.success('Produit créé avec succès', savedProduct);
     } catch (error) {
+      // ROLLBACK : On supprime toutes les images si une erreur survient
+      for (const fullPath of savedFiles) {
+        if (fs.existsSync(fullPath)) {
+          fs.unlinkSync(fullPath);
+        }
+      }
+
+      console.error(error);
       return ApiResponse.error('Erreur lors de la création du produit');
+    }
+  }
+
+  async productByOrder() {
+    try {
+      const product = await this.productModel
+        .find(
+          {
+            priority: true,
+          },
+          'name slug image order',
+        )
+        .sort({ order: 1 })
+        .exec();
+      if (!product) {
+        return ApiResponse.error('Produit non trouvée');
+      }
+      return ApiResponse.success('Produit récupérée avec succès', product);
+    } catch (error) {
+      return ApiResponse.error(
+        'Erreur lors de la récupération des produits par ordre',
+      );
     }
   }
 
@@ -106,7 +175,7 @@ export class ProductsService {
 
   async update(slug: string, updateProductDto: UpdateProductDto) {
     try {
-      const serviceId = resolveIdOrThrow(
+      const serviceId = await resolveIdOrThrow(
         updateProductDto.serviceId,
         (id) => this.servicesService.findOneById(id),
         'Service',

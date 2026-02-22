@@ -8,6 +8,8 @@ import {
   Delete,
   UseGuards,
   Query,
+  ValidationPipe,
+  UseInterceptors,
 } from '@nestjs/common';
 import { ServicesService } from './services.service';
 import { CreateServiceDto } from './dto/create-service.dto';
@@ -17,15 +19,25 @@ import { UserRoles } from 'src/shared/common/user-roles.enum';
 import { AuthGuard } from 'src/shared/guards/auth.guard';
 import { AuthorizeGuard } from 'src/shared/guards/authorization.guard';
 import { QueryDto } from 'src/shared/dto/query.dto';
-
+import { ApiBearerAuth, ApiConsumes, ApiTags } from '@nestjs/swagger';
+import { FormDataTransformPipe } from 'src/shared/pipes/formdata-transform.pipe';
+import { NoFilesInterceptor } from '@nestjs/platform-express';
+@ApiTags('Services')
+@ApiBearerAuth()
 @Controller('services')
 export class ServicesController {
   constructor(private readonly servicesService: ServicesService) {}
 
   @AuthorizeRoles(UserRoles.ADMIN)
   @UseGuards(AuthGuard, AuthorizeGuard)
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(NoFilesInterceptor())
   @Post()
-  create(@Body() createServiceDto: CreateServiceDto) {
+  create(
+    @Body(FormDataTransformPipe, ValidationPipe)
+    createServiceDto: CreateServiceDto,
+  ) {
+    console.log(createServiceDto);
     return this.servicesService.create(createServiceDto);
   }
 
@@ -41,10 +53,13 @@ export class ServicesController {
 
   @AuthorizeRoles(UserRoles.ADMIN)
   @UseGuards(AuthGuard, AuthorizeGuard)
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(NoFilesInterceptor())
   @Patch(':slug')
   update(
     @Param('slug') slug: string,
-    @Body() updateServiceDto: UpdateServiceDto,
+    @Body(FormDataTransformPipe, ValidationPipe)
+    updateServiceDto: UpdateServiceDto,
   ) {
     return this.servicesService.update(slug, updateServiceDto);
   }

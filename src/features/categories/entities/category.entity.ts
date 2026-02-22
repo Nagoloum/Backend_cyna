@@ -10,7 +10,7 @@ export class Category extends Document {
   image: string;
   @Prop()
   description: string;
-  @Prop()
+  @Prop({ required: true })
   order: number;
 }
 export const CategorySchema = SchemaFactory.createForClass(Category);

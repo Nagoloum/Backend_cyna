@@ -25,22 +25,24 @@ export class ServicesService {
       if (existingService) {
         return ApiResponse.error('Ce service existe deja');
       }
-      createServiceDto.slug = this.sharedService.generateSlug(
-        createServiceDto.name,
-      );
-      const categoryId = resolveIdOrThrow(
+      const slug = this.sharedService.generateSlug(createServiceDto.name);
+      const categoryId = await resolveIdOrThrow(
         createServiceDto.categoryId,
         (id) => this.categoryService.findOneById(id),
         'Catégorie',
       );
+
       const createdService = new this.serviceModel({
         ...createServiceDto,
+        slug,
         category: categoryId,
       });
       const savedService = await createdService.save();
       return ApiResponse.success('Service crée', savedService);
     } catch (error) {
-      return ApiResponse.error('Erreur lors de la création du service');
+      return ApiResponse.error(
+        'Erreur lors de la création du service : ' + error.message,
+      );
     }
   }
 
@@ -108,7 +110,7 @@ export class ServicesService {
 
   async update(slug: string, updateServiceDto: UpdateServiceDto) {
     try {
-      const categoryId = resolveIdOrThrow(
+      const categoryId = await resolveIdOrThrow(
         updateServiceDto.categoryId,
         (id) => this.categoryService.findOneById(id),
         'Catégorie',

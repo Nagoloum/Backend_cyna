@@ -7,43 +7,90 @@ import { Category } from './entities/category.entity';
 import { ApiResponse } from 'src/shared/responses/api-response';
 import { QueryDto } from 'src/shared/dto/query.dto';
 import { SharedService } from 'src/shared/services/shared.service';
-
+import * as fs from 'fs';
+import * as path from 'path';
 @Injectable()
 export class CategoriesService {
   constructor(
     @InjectModel(Category.name) private categoryModel: Model<Category>,
     private readonly sharedService: SharedService,
   ) {}
-  async create(createCategoryDto: CreateCategoryDto) {
+  async create(
+    createCategoryDto: CreateCategoryDto,
+    files: { newImage?: Express.Multer.File[] },
+  ) {
+    const file = files.newImage?.[0];
+    let fullPath = '';
+    let relativePath = '';
+
     try {
-      const existingCategory: Category | null =
-        await this.categoryModel.findOne(
-          {
-            name: createCategoryDto.name,
-          },
-          '_id order',
-        );
+      // 1. Vérifications initiales (Nom et Ordre)
+      const existingCategory = await this.categoryModel.findOne(
+        { name: createCategoryDto.name },
+        '_id',
+      );
       if (existingCategory) {
-        return ApiResponse.error('Cette catégorie existe deja');
+        return ApiResponse.error('Cette catégorie existe déjà');
       }
-      /** Vérifier si deux catégories n'ont pas le même ordre */
+
       const existingCategoryOrder = await this.categoryModel.findOne({
         order: createCategoryDto.order,
       });
       if (existingCategoryOrder) {
-        return ApiResponse.error(
-          'Une catégorie a déjà cet ordre, veuillez choisir un autre ordre',
-        );
+        return ApiResponse.error('Une catégorie a déjà cet ordre');
       }
 
-      createCategoryDto.slug = this.sharedService.generateSlug(
-        createCategoryDto.name,
-      );
-      const createdCategory = new this.categoryModel(createCategoryDto);
+      // 2. Gestion du fichier (si présent)
+      if (file) {
+        const uploadDir = './storage/categories';
+        if (!fs.existsSync(uploadDir)) {
+          fs.mkdirSync(uploadDir, { recursive: true });
+        }
+
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+        const fileName = `cat-${uniqueSuffix}${path.extname(file.originalname)}`;
+
+        fullPath = path.join(uploadDir, fileName);
+        relativePath = `storage/categories/${fileName}`;
+
+        // Écriture physique du fichier
+        fs.writeFileSync(fullPath, file.buffer);
+      }
+
+      // 3. Création et Sauvegarde en BDD
+      const slug = this.sharedService.generateSlug(createCategoryDto.name);
+      const createdCategory = new this.categoryModel({
+        ...createCategoryDto,
+        slug,
+        image: relativePath, // On stocke le chemin relatif
+      });
+
       await createdCategory.save();
-      return ApiResponse.success('Catégorie crée', createdCategory);
+      return ApiResponse.success('Catégorie créée', createdCategory);
     } catch (error) {
+      // 4. Nettoyage : Si la BDD échoue mais que le fichier a été écrit
+      if (fullPath && fs.existsSync(fullPath)) {
+        fs.unlinkSync(fullPath);
+      }
+
       return ApiResponse.error('Erreur lors de la création de la catégorie');
+    }
+  }
+
+  async categoryByOrder() {
+    try {
+      const category = await this.categoryModel
+        .find({}, 'name slug image order')
+        .sort({ order: 1 })
+        .exec();
+      if (!category) {
+        return ApiResponse.error('Catégorie non trouvée');
+      }
+      return ApiResponse.success('Catégorie récupérée avec succès', category);
+    } catch (error) {
+      return ApiResponse.error(
+        'Erreur lors de la récupération de la catégorie',
+      );
     }
   }
 
@@ -115,30 +162,115 @@ export class CategoriesService {
     }
   }
 
-  async update(slug: string, updateCategoryDto: UpdateCategoryDto) {
+  async update(
+    slug: string,
+    updateCategoryDto: UpdateCategoryDto,
+    files: { newImage?: Express.Multer.File[] },
+  ) {
+    const file = files?.newImage?.[0];
+    let oldImagePath: string | null = null;
+    let newRelativePath: string | null = null;
+
     try {
-      const category = await this.categoryModel.findOneAndUpdate(
+      // 1. Chercher la catégorie existante
+      const category = await this.categoryModel.findOne({ slug });
+      if (!category) {
+        return ApiResponse.error('Catégorie non trouvée');
+      }
+
+      // 2. Si une nouvelle image est envoyée
+      if (file) {
+        const uploadDir = './storage/categories';
+        if (!fs.existsSync(uploadDir)) {
+          fs.mkdirSync(uploadDir, { recursive: true });
+        }
+
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+        const fileName = `cat-${uniqueSuffix}${path.extname(file.originalname)}`;
+
+        newRelativePath = `storage/categories/${fileName}`;
+        const fullPath = path.join(uploadDir, fileName);
+
+        // Écriture de la nouvelle image
+        fs.writeFileSync(fullPath, file.buffer);
+
+        // On garde précieusement le chemin de l'ancienne image pour la supprimer plus tard
+        oldImagePath = category.image;
+
+        // On met à jour le DTO avec le nouveau chemin
+        updateCategoryDto['image'] = newRelativePath;
+      }
+
+      // 3. Mise à jour du slug si le nom a changé
+      // if (updateCategoryDto.name && updateCategoryDto.name !== category.name) {
+      //   updateCategoryDto['slug'] = this.sharedService.generateSlug(
+      //     updateCategoryDto.name,
+      //   );
+      // }
+
+      // 4. Mise à jour en BDD
+      const updatedCategory = await this.categoryModel.findOneAndUpdate(
         { slug },
         updateCategoryDto,
         { new: true },
       );
-      if (!category) {
-        return ApiResponse.error('Catégorie non trouvée');
+
+      // 5. Nettoyage de l'ancienne image
+      // On ne supprime l'ancienne QUE si la mise à jour BDD a réussi ET qu'une nouvelle image a été fournie
+      if (file && oldImagePath) {
+        const oldFullRootPath = path.join(process.cwd(), oldImagePath);
+        if (fs.existsSync(oldFullRootPath)) {
+          fs.unlinkSync(oldFullRootPath);
+        }
       }
-      return ApiResponse.success('Catégorie mise à jour avec succès', category);
+
+      return ApiResponse.success(
+        'Catégorie mise à jour avec succès',
+        updatedCategory,
+      );
     } catch (error) {
-      return ApiResponse.error('Erreur lors de la mise à jour de la catégorie');
+      // Si la BDD échoue mais qu'on avait déjà écrit la nouvelle image, on l'annule
+      if (newRelativePath) {
+        const tempPath = path.join(process.cwd(), newRelativePath);
+        if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+      }
+
+      console.error(error);
+      return ApiResponse.error('Erreur lors de la mise à jour');
     }
   }
 
   async remove(slug: string) {
     try {
-      const category = await this.categoryModel.findOneAndDelete({ slug });
+      // 1. On récupère d'abord la catégorie pour avoir le chemin de l'image
+      const category = await this.categoryModel.findOne({ slug });
+
       if (!category) {
         return ApiResponse.error('Catégorie non trouvée');
       }
+
+      // 2. On supprime l'entrée en base de données
+      await this.categoryModel.deleteOne({ slug });
+
+      // 3. Si la catégorie avait une image, on la supprime du disque
+      if (category.image) {
+        const fullPath = path.join(process.cwd(), category.image);
+
+        // On vérifie si le fichier existe avant de tenter de le supprimer
+        if (fs.existsSync(fullPath)) {
+          try {
+            fs.unlinkSync(fullPath);
+          } catch (fileError) {
+            return ApiResponse.error(
+              'Une erreur est survenue lors de la suppression de l’image',
+            );
+          }
+        }
+      }
+
       return ApiResponse.success('Catégorie supprimée avec succès');
     } catch (error) {
+      console.error(error);
       return ApiResponse.error('Erreur lors de la suppression de la catégorie');
     }
   }
