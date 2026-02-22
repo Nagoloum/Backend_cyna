@@ -7,6 +7,7 @@ import { AuthModule } from './features/auth/auth.module';
 import { CategoriesModule } from './features/categories/categories.module';
 import { ServicesModule } from './features/services/services.module';
 import { ProductsModule } from './features/products/products.module';
+import { SlidersModule } from './features/sliders/sliders.module';
 
 config();
 @Module({
@@ -17,6 +18,7 @@ config();
     CategoriesModule,
     ServicesModule,
     ProductsModule,
+    SlidersModule,
   ],
   controllers: [],
   providers: [],
