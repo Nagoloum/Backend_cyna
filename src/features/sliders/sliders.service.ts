@@ -120,7 +120,7 @@ async create(
         oldImagePath = slider.image;
 
         // Mise à jour du chemin dans le DTO
-        updateSliderDto.image = newRelativePath;
+        updateSliderDto.newImage = newRelativePath;
       }
       const updatedSlider = await this.sliderModel.findOneAndUpdate(
         { slug },

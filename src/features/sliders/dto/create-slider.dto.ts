@@ -7,10 +7,13 @@ export class CreateSliderDto {
     @ApiProperty({ description: 'Titre affiché sur le carrousel' })
     title: string;
 
-    @IsString()
-    @IsNotEmpty({ message: "L'image est obligatoire pour une section de carrousel" })
-    @ApiProperty({ description: "URL ou nom du fichier image" })
-    image: string;
+    @ApiProperty({
+        type: 'string',
+        format: 'binary',
+        description: 'Image uniquement (JPG, PNG, WebP), max 2Mo',
+        required: true,
+    })
+    newImage: string;
 
     @IsString()
     @IsOptional()
