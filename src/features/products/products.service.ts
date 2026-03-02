@@ -161,9 +161,12 @@ export class ProductsService {
     }
   }
 
-  async findOne(id: string) {
+  async findOne(slug: string) {
     try {
-      const product = await this.productModel.findOne({ _id: id }).exec();
+      const product = await this.productModel
+        .findOne({ slug: slug })
+        .populate('service', 'name slug')
+        .exec();
       if (!product) {
         return ApiResponse.error('Produit non trouvé');
       }
@@ -173,35 +176,135 @@ export class ProductsService {
     }
   }
 
-  async update(slug: string, updateProductDto: UpdateProductDto) {
+  async update(
+    slug: string,
+    updateProductDto: UpdateProductDto,
+    files: Express.Multer.File[],
+  ) {
+    const newSavedFiles: string[] = []; // Pour rollback en cas d'erreur
+
     try {
+      // 1. Récupérer le produit existant
+      const existingProduct = await this.productModel.findOne({ slug });
+      if (!existingProduct) {
+        return ApiResponse.error('Produit non trouvé');
+      }
+
+      // 2. Préparer les nouvelles images
+      let finalImages: ImageDto[] = [];
+
+      // Si l'utilisateur a envoyé de NOUVELLES images
+      if (files && files.length > 0) {
+        const uploadDir = './storage/products';
+        if (!fs.existsSync(uploadDir))
+          fs.mkdirSync(uploadDir, { recursive: true });
+
+        // a. Supprimer les ANCIENNES images du disque
+        if (existingProduct.images && existingProduct.images.length > 0) {
+          for (const oldImg of existingProduct.images) {
+            const oldPath = path.join(process.cwd(), oldImg.url);
+            if (fs.existsSync(oldPath)) {
+              try {
+                fs.unlinkSync(oldPath);
+              } catch (e) {
+                console.error(
+                  `Impossible de supprimer l'ancienne image: ${oldPath}`,
+                );
+              }
+            }
+          }
+        }
+
+        // b. Enregistrer les NOUVELLES images
+        const newImageObjects: ImageDto[] = [];
+        for (const file of files) {
+          const uniqueSuffix =
+            Date.now() + '-' + Math.round(Math.random() * 1e9);
+          const fileName = `prod-${uniqueSuffix}${path.extname(file.originalname)}`;
+          const fullPath = path.join(uploadDir, fileName);
+          const relativePath = `storage/products/${fileName}`;
+
+          fs.writeFileSync(fullPath, file.buffer);
+          newSavedFiles.push(fullPath);
+
+          newImageObjects.push({
+            url: relativePath,
+          });
+        }
+
+        // On remplace totalement le tableau
+        finalImages = newImageObjects;
+      }
+
+      // 3. Résolution du ServiceId et du Slug (comme avant)
       const serviceId = await resolveIdOrThrow(
         updateProductDto.serviceId,
         (id) => this.servicesService.findOneById(id),
         'Service',
       );
-      const product = await this.productModel.findOneAndUpdate(
+
+      const newSlug = updateProductDto.name
+        ? this.sharedService.generateSlug(updateProductDto.name)
+        : existingProduct.slug;
+
+      // 4. Mise à jour finale
+      const updatedProduct = await this.productModel.findOneAndUpdate(
         { slug },
-        { ...updateProductDto, service: serviceId },
+        {
+          ...updateProductDto,
+          slug: newSlug,
+          service: serviceId,
+          images: finalImages, // Nouveau tableau d'images
+        },
         { new: true },
       );
-      if (!product) {
-        return ApiResponse.error('Produit non trouvé');
-      }
-      return ApiResponse.success('Produit mis à jour avec succès', product);
+
+      return ApiResponse.success(
+        'Produit mis à jour avec succès',
+        updatedProduct,
+      );
     } catch (error) {
+      // ROLLBACK : On supprime les nouvelles images si la BDD échoue
+      for (const fullPath of newSavedFiles) {
+        if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
+      }
+      console.error(error);
       return ApiResponse.error('Erreur lors de la mise à jour du produit');
     }
   }
-
   async remove(slug: string) {
     try {
+      // 1. Suppression en BDD (findOneAndDelete retourne l'objet supprimé)
       const product = await this.productModel.findOneAndDelete({ slug });
+
       if (!product) {
         return ApiResponse.error('Produit non trouvé');
       }
-      return ApiResponse.success('Produit supprimé avec succès');
+
+      // 2. Nettoyage des images sur le disque
+      if (product.images && product.images.length > 0) {
+        for (const img of product.images) {
+          // Utilisation de path.resolve pour garantir un chemin absolu correct
+          const filePath = path.resolve(process.cwd(), img.url);
+
+          if (fs.existsSync(filePath)) {
+            try {
+              fs.unlinkSync(filePath);
+            } catch (fileError) {
+              // On log l'erreur mais on ne bloque pas la réponse client
+              // car le produit est déjà supprimé en base de données.
+              console.error(
+                `Erreur lors de la suppression physique : ${filePath}`,
+                fileError,
+              );
+            }
+          }
+        }
+      }
+
+      return ApiResponse.success('Produit et ses images supprimés avec succès');
     } catch (error) {
+      console.error(error);
       return ApiResponse.error('Erreur lors de la suppression du produit');
     }
   }

@@ -67,6 +67,10 @@ export class CategoriesController {
   categoryByOrder() {
     return this.categoriesService.categoryByOrder();
   }
+  @Get('category-for-user/:slug')
+  findCateroryBySlug(@Param('slug') slug: string) {
+    return this.categoriesService.findCateroryBySlug(slug);
+  }
 
   @Get(':slug')
   findOne(@Param('slug') slug: string) {

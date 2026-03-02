@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { CategoriesService } from './categories.service';
 import { CategoriesController } from './categories.controller';
 import { Category, CategorySchema } from './entities/category.entity';
@@ -6,6 +6,10 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { UsersModule } from '../users/users.module';
 import { JwtService } from '@nestjs/jwt';
 import { SharedService } from 'src/shared/services/shared.service';
+import { Product } from '../products/entities/product.entity';
+import { ProductsModule } from '../products/products.module';
+import { Service } from '../services/entities/service.entity';
+import { ServicesModule } from '../services/services.module';
 
 @Module({
   imports: [
@@ -13,6 +17,8 @@ import { SharedService } from 'src/shared/services/shared.service';
       { name: Category.name, schema: CategorySchema },
     ]),
     UsersModule,
+    forwardRef(() => ProductsModule),
+    forwardRef(() => ServicesModule),
   ],
   controllers: [CategoriesController],
   providers: [CategoriesService, JwtService, SharedService],
