@@ -12,20 +12,34 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AuthorizeRoles } from 'src/shared/decorators/authorize-roles.decorator';
 import { FormDataTransformPipe } from 'src/shared/pipes/formdata-transform.pipe';
 
-
 @ApiTags('sliders')
 @ApiBearerAuth()
 @Controller('sliders')
 export class SlidersController {
   constructor(private readonly slidersService: SlidersService) { }
-
-
-  /*
+  @AuthorizeRoles(UserRoles.ADMIN)
+  @UseGuards(AuthGuard, AuthorizeGuard)
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(
+    FileFieldsInterceptor([{ name: 'newImage', maxCount: 1 }], {
+      storage: memoryStorage(), // Le fichier n'est pas écrit sur le disque ici
+      limits: { fileSize: 2 * 1024 * 1024 },
+      fileFilter: (req, file, cb) => {
+        if (!file.mimetype.match(/\/(jpg|jpeg|png|webp)$/)) {
+          return cb(new BadRequestException('Format invalide'), false);
+        }
+        cb(null, true);
+      },
+    }),
+  )
   @Post()
-  create(@Body() createSliderDto: CreateSliderDto) {
-    return this.slidersService.create(createSliderDto);
-  }*/
-
+  create(
+    @Body(FormDataTransformPipe, ValidationPipe)
+    createSliderDto: CreateSliderDto,
+    @UploadedFiles() files: { newImage?: Express.Multer.File[]}
+  ) {
+    return this.slidersService.create(createSliderDto, files);
+  }
   @Get()
   findAll() {
     return this.slidersService.findAll();
