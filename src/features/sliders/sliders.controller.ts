@@ -38,6 +38,7 @@ export class SlidersController {
     createSliderDto: CreateSliderDto,
     @UploadedFiles() files: { newImage?: Express.Multer.File[]}
   ) {
+    console.log(" voici les .... " + createSliderDto);
     return this.slidersService.create(createSliderDto, files);
   }
   @Get()
@@ -67,13 +68,13 @@ export class SlidersController {
       },
     }),
   )
-  @Patch(':slug')
+  @Patch(':idSlider')
   update(
     @UploadedFiles()
     files: {
       newImage?: Express.Multer.File[];
     },
-    @Param('slug') slug: string,
+    @Param('idSlider') slug: string,
     @Body(FormDataTransformPipe, ValidationPipe)
     updateSliderDto: UpdateSliderDto) {
     return this.slidersService.update(slug, updateSliderDto, files);
@@ -81,9 +82,9 @@ export class SlidersController {
 
   @AuthorizeRoles(UserRoles.ADMIN)
   @UseGuards(AuthGuard, AuthorizeGuard)
-  @Delete(':slug')
-  remove(@Param('slug') slug: string) {
-    return this.slidersService.remove(slug);
+  @Delete(':idSlider')
+  remove(@Param('idSlider') idSlider: string) {
+    return this.slidersService.remove(idSlider);
   }
 }
 

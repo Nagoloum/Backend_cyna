@@ -25,7 +25,6 @@ export class CreateSliderDto {
     @ApiProperty({ description: "URL ou nom du fichier image" })
     NameUrl: string;
 
-    @IsNumber()
     @IsOptional()
     @ApiPropertyOptional({ default: 0, description: 'Position d’affichage' })
     order: number;
