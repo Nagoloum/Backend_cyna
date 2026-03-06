@@ -7,7 +7,7 @@ import { Image, ImageSchema } from 'src/shared/model/image.entity';
 export class Product extends Document {
   // FK vers la collection Service
 
-  @Prop({ required: true, trim: true })
+  @Prop({ required: true, trim: true, index: true})
   name: string;
 
   @Prop({ required: true, trim: true })
@@ -16,13 +16,13 @@ export class Product extends Document {
   @Prop({ type: [ImageSchema], default: [] })
   images: Image[];
 
-  @Prop({ type: Number, default: 0 })
+  @Prop({ type: Number, default: 0, index: true})
   priceMonth: number;
 
   @Prop({ type: Number, default: 0 })
   priceYear: number;
 
-  @Prop({ type: Number, default: 0 })
+  @Prop({ type: Number, default: 0, index: true })
   stock: number;
 
   @Prop({ type: Boolean, default: false })
@@ -34,7 +34,7 @@ export class Product extends Document {
   @Prop()
   order: number;
 
-  @Prop({ type: Types.ObjectId, ref: 'Service', required: true })
+  @Prop({ type: Types.ObjectId, ref: 'Service', required: true , index : true})
   service: Service;
 }
 

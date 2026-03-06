@@ -10,6 +10,7 @@ import { ProductsModule } from './features/products/products.module';
 import { SlidersModule } from './features/sliders/sliders.module';
 import { CarteBancairesModule } from './features/carte_bancaires/carte_bancaires.module';
 import { AdresseFacturationsModule } from './features/adresse_facturations/adresse_facturations.module';
+import { SearchModule } from './features/search/search.module';
 
 config();
 @Module({
@@ -23,6 +24,7 @@ config();
     SlidersModule,
     CarteBancairesModule,
     AdresseFacturationsModule,
+    SearchModule
   ],
   controllers: [],
   providers: [],
