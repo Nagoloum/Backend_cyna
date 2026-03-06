@@ -1,16 +1,10 @@
 import { ApiProperty, ApiPropertyOptional, ApiSchema } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
 import {
   IsString,
-  IsNumber,
-  IsBoolean,
   IsNotEmpty,
   IsOptional,
   IsMongoId,
-  Min,
-  ValidateNested,
 } from 'class-validator';
-import { ImageDto } from 'src/shared/dto';
 
 @ApiSchema({ description: 'Data Transfer Object pour créer un produit' })
 export class CreateProductDto {
