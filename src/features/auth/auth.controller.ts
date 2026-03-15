@@ -7,7 +7,6 @@ import { AuthGuard } from 'src/shared/guards/auth.guard';
 import { User } from '../users/entities/user.entity';
 
 @ApiTags('Auth')
-@ApiBearerAuth()
 @Controller('auth/')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}

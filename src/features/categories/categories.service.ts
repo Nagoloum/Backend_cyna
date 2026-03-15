@@ -70,8 +70,8 @@ export class CategoriesService {
         image: relativePath, // On stocke le chemin relatif
       });
 
-      await createdCategory.save();
-      return ApiResponse.success('Catégorie créée', createdCategory);
+      const savedCategory = await createdCategory.save();
+      return ApiResponse.success('Catégorie créée', savedCategory);
     } catch (error) {
       // 4. Nettoyage : Si la BDD échoue mais que le fichier a été écrit
       if (fullPath && fs.existsSync(fullPath)) {
