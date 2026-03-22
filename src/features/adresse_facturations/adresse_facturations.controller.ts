@@ -9,6 +9,7 @@ import {
   UseGuards,
   UseInterceptors,
   ValidationPipe,
+  Query,
 } from '@nestjs/common';
 import { AdresseFacturationsService } from './adresse_facturations.service';
 import { CreateAdresseFacturationDto } from './dto/create-adresse_facturation.dto';
@@ -18,6 +19,10 @@ import { NoFilesInterceptor } from '@nestjs/platform-express';
 import { AuthGuard } from 'src/shared/guards/auth.guard';
 import { FormDataTransformPipe } from 'src/shared/pipes/formdata-transform.pipe';
 import { CurrentUser } from 'src/shared/decorators/current-user.decorators';
+import { AuthorizeRoles } from 'src/shared/decorators/authorize-roles.decorator';
+import { UserRoles } from 'src/shared/common/user-roles.enum';
+import { AuthorizeGuard } from 'src/shared/guards/authorization.guard';
+import { QueryDto } from 'src/shared/dto/query.dto';
 @ApiTags('Adresse Facturations')
 @ApiBearerAuth()
 @Controller('adresse-facturations')
@@ -40,6 +45,12 @@ export class AdresseFacturationsController {
       currentUser,
     );
   }
+  @AuthorizeRoles(UserRoles.ADMIN)
+  @UseGuards(AuthGuard, AuthorizeGuard)
+  @Get()
+  findAll(@Query() queryDto: QueryDto) {
+    return this.adresseFacturationsService.findAll(queryDto);
+  }
 
   @UseGuards(AuthGuard)
   @Get('by-user')
@@ -47,24 +58,31 @@ export class AdresseFacturationsController {
     return this.adresseFacturationsService.findByUser(currentUser);
   }
 
+  @UseGuards(AuthGuard)
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.adresseFacturationsService.findOne(+id);
+  findOne(@Param('id') id: string, @CurrentUser() currentUser: any) {
+    return this.adresseFacturationsService.findOne(id, currentUser);
   }
 
+  @UseGuards(AuthGuard)
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(NoFilesInterceptor())
   @Patch(':id')
   update(
     @Param('id') id: string,
-    @Body() updateAdresseFacturationDto: UpdateAdresseFacturationDto,
+    @Body(FormDataTransformPipe, ValidationPipe)
+    updateAdresseFacturationDto: UpdateAdresseFacturationDto,
+    @CurrentUser() currentUser: any,
   ) {
     return this.adresseFacturationsService.update(
-      +id,
+      id,
       updateAdresseFacturationDto,
+      currentUser,
     );
   }
-
+  @UseGuards(AuthGuard)
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.adresseFacturationsService.remove(+id);
+  remove(@Param('id') id: string, @CurrentUser() currentUser: any) {
+    return this.adresseFacturationsService.remove(id, currentUser);
   }
 }
