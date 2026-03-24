@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
 import { Controller, Post, Body, Query, Get, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { ApiBearerAuth, ApiBody, ApiTags } from '@nestjs/swagger';
@@ -9,7 +7,6 @@ import { AuthGuard } from 'src/shared/guards/auth.guard';
 import { User } from '../users/entities/user.entity';
 
 @ApiTags('Auth')
-@ApiBearerAuth()
 @Controller('auth/')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
