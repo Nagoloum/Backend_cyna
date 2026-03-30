@@ -4,11 +4,15 @@ import { config } from 'dotenv';
 import { User } from 'src/features/users/entities/user.entity';
 import { StringValue } from 'ms';
 
+
 config();
 
 @Injectable()
 export class SharedService {
-  constructor(private jwtService: JwtService) {}
+  constructor(private jwtService: JwtService) { }
+
+  private storedCode: string | null = null;
+  private expiry: number | null = null;
 
   generateSlug(name: string): string {
     // Convertir en minuscules et supprimer les caractères spéciaux et les accents
@@ -41,7 +45,7 @@ export class SharedService {
       email: user.email,
     };
 
-    return  this.jwtService.sign(payload, {
+    return this.jwtService.sign(payload, {
       secret: process.env.ACCESS_TOKEN_SECRET_KEY!,
       expiresIn: '24h' as StringValue,
     });
@@ -70,4 +74,24 @@ export class SharedService {
     const [day, month, year] = dateStr.split('/').map(Number);
     return new Date(year, month - 1, day); // mois commence à 0 en JS
   }
+
+  generateSixDigitCode(): string {
+   const newVerificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    this.storedCode = newVerificationCode;
+    this.expiry = Date.now() + 5 * 60 * 1000; // Valide 5 minutes
+    return newVerificationCode;
+  }
+verifyCode(code: string): boolean {
+
+    if (!this.storedCode || !this.expiry) {
+        return false;
+    }
+    // Étape 2 : Vérification du temps
+    if (Date.now() > this.expiry) {
+        this.storedCode = null; // on efface le code en memoire
+        return false;
+    }
+    const isMatch = (code === this.storedCode);
+    return isMatch;
+}
 }
