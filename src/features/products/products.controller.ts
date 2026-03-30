@@ -67,7 +67,16 @@ export class ProductsController {
   productByOrder() {
     return this.productsService.productByOrder();
   }
+  // Permet de récupérer un produit par son slug, accessible à tous les utilisateurs
 
+  @Get('findBySlug/:slug')
+  findBySlug(@Param('slug') slug: string) {
+    return this.productsService.findBySlug(slug);
+  }
+
+  // Permet de récupérer un produit par son slug, accessible uniquement aux admins
+  @AuthorizeRoles(UserRoles.ADMIN)
+  @UseGuards(AuthGuard, AuthorizeGuard)
   @Get(':slug')
   findOne(@Param('slug') slug: string) {
     return this.productsService.findOne(slug);
