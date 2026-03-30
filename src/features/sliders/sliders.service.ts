@@ -44,14 +44,12 @@ export class SlidersService {
 
         fs.writeFileSync(fullPath, file.buffer);
       };
-      console.log(createSliderDto);
 
       // 3. Création de l'instance et sauvegarde en BDD
       const newSlider = new this.sliderModel({
         ...createSliderDto,
         image: relativePath, // On stocke le chemin relatif
       });
-      console.log(newSlider);
       const savedSlider = await newSlider.save();
 
       return ApiResponse.success('Slider créé avec succès', savedSlider);
