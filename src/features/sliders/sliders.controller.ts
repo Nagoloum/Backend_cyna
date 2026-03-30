@@ -1,4 +1,18 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, UseInterceptors, BadRequestException, UploadedFiles, ValidationPipe, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+  UseInterceptors,
+  BadRequestException,
+  UploadedFiles,
+  ValidationPipe,
+  Query,
+} from '@nestjs/common';
 import { SlidersService } from './sliders.service';
 import { CreateSliderDto } from './dto/create-slider.dto';
 import { UpdateSliderDto } from './dto/update-slider.dto';
@@ -16,7 +30,7 @@ import { FormDataTransformPipe } from 'src/shared/pipes/formdata-transform.pipe'
 @ApiBearerAuth()
 @Controller('sliders')
 export class SlidersController {
-  constructor(private readonly slidersService: SlidersService) { }
+  constructor(private readonly slidersService: SlidersService) {}
   @AuthorizeRoles(UserRoles.ADMIN)
   @UseGuards(AuthGuard, AuthorizeGuard)
   @ApiConsumes('multipart/form-data')
@@ -36,9 +50,8 @@ export class SlidersController {
   create(
     @Body(FormDataTransformPipe, ValidationPipe)
     createSliderDto: CreateSliderDto,
-    @UploadedFiles() files: { newImage?: Express.Multer.File[]}
+    @UploadedFiles() files: { newImage?: Express.Multer.File[] },
   ) {
-    console.log(" voici les .... " + createSliderDto);
     return this.slidersService.create(createSliderDto, files);
   }
   @Get()
@@ -47,7 +60,7 @@ export class SlidersController {
   }
   @Get('sliderTop')
   async findTop(@Query('limit') limit: string) {
-    // On transforme le texte reçu en nombre. 
+    // On transforme le texte reçu en nombre.
     // Si 'limit' n'est pas envoyé, on passe undefined et le service prendra 3 par défaut.
     const topeSliders = limit ? parseInt(limit, 10) : undefined;
     return this.slidersService.findTopSliders(topeSliders);
@@ -76,7 +89,8 @@ export class SlidersController {
     },
     @Param('idSlider') slug: string,
     @Body(FormDataTransformPipe, ValidationPipe)
-    updateSliderDto: UpdateSliderDto) {
+    updateSliderDto: UpdateSliderDto,
+  ) {
     return this.slidersService.update(slug, updateSliderDto, files);
   }
 
@@ -87,4 +101,3 @@ export class SlidersController {
     return this.slidersService.remove(idSlider);
   }
 }
-
