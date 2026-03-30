@@ -9,11 +9,31 @@ import { User } from '../users/entities/user.entity';
 @ApiTags('Auth')
 @Controller('auth/')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(private readonly authService: AuthService) { }
 
   @Post('login')
   login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto);
+  }
+  @Post('check-code')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        code: {
+          type: 'string',
+          example: '123456',
+          description: 'Le code à 6 chiffres reçu par email',
+          minLength: 6,
+          maxLength: 6
+        },
+      },
+      required: ['code'],
+    },
+  })
+  verify2FA(@Body('code') code: string) {
+    console.log('Vérification du code reçu :', code);
+    return this.authService.verifyCode2FA(code);
   }
   @Post('register')
   register(@Body() registerDto: RegisterDto) {

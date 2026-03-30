@@ -11,6 +11,8 @@ import { JwtService } from '@nestjs/jwt';
 import { config } from 'dotenv';
 import { StringValue } from 'ms';
 import { Console } from 'console';
+import { UserRoles } from 'src/shared/common/user-roles.enum';
+import { console } from 'inspector/promises';
 
 config();
 
@@ -21,7 +23,7 @@ export class AuthService {
     private readonly sharedService: SharedService,
     private readonly sendEmailService: SendEmailService,
     private jwtService: JwtService,
-  ) {}
+  ) { }
 
   async login(loginDto: LoginDto) {
     try {
@@ -43,10 +45,12 @@ export class AuthService {
       if (!matchPassword) {
         return ApiResponse.error('Votre mot de passe est incorrect');
       }
-
-      // On ne bloque plus la connexion si !user.confirmed
-      // On renvoie juste l'info dans la réponse
-
+      if (UserRoles.ADMIN?.includes(user.role)) {
+        //envoie un code d'identifiactions à 6 chiffres:    
+        const userEmail = user.email;
+        const code = this.sharedService.generateSixDigitCode()
+        this.sendEmailService.sendVerificationCode(userEmail, code)
+      }
       const token = this.sharedService.accessToken(user);
       return ApiResponse.success('Connexion réussie', {
         token,
@@ -55,6 +59,17 @@ export class AuthService {
     } catch (error: any) {
       return ApiResponse.error('Une erreur est survenue lors de la connexion ');
     }
+  }
+  async verifyCode2FA(inputCode: string) {
+    if (!inputCode) {
+      return ApiResponse.error('Code de confirmation requis');
+    }
+    const isValid = await this.sharedService.verifyCode(inputCode);
+
+    if (!isValid) {
+      return ApiResponse.error('Code de confirmation incorrect ou expiré');
+    }
+    return ApiResponse.success('Code validé avec succès');
   }
 
   async register(registerDto: RegisterDto) {

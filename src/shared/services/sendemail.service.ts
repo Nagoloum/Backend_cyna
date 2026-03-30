@@ -16,10 +16,10 @@ export class SendEmailService {
 
   async sendVerificationCode(email: string, code: string) {
     const mailOptions = {
-      from: 'woodpartners@gmail.com',
+      from: 'cyna@gmail.com',
       to: email,
       subject: 'Verification Code',
-      text: `Your verification code is ${code}`,
+      text: `Voici votre code de confirmation : ${code}. Il expire dans 5 minutes.`,
     };
 
     await this.transporter.sendMail(mailOptions);
