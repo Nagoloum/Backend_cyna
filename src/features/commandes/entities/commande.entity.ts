@@ -4,6 +4,7 @@ import { CarteBancaire } from 'src/features/carte_bancaires/entities/carte_banca
 import { User } from 'src/features/users/entities/user.entity';
 import { StatutCommande } from 'src/shared/common/statut-commande.enum';
 
+@Schema({ timestamps: true })
 export class Commande extends Document {
   @Prop({ required: true })
   totalPrice: number;
