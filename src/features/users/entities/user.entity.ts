@@ -1,4 +1,4 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { Prop, raw, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { UserRoles } from 'src/shared/common/user-roles.enum';
 
@@ -17,7 +17,13 @@ export class User extends Document {
 
   @Prop({ required: true, default: UserRoles.CUSTOMER })
   role: UserRoles;
-
+  @Prop(
+    raw({
+      code: { type: String, default: '' },
+      dateExp: { type: String, default: '' },
+    }),
+  )
+  verification: Record<string, any>;
   @Prop()
   phone: string;
 
