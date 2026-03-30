@@ -176,6 +176,35 @@ export class ProductsService {
     }
   }
 
+  async findBySlug(slug: string) {
+    try {
+      const product = await this.productModel
+        .findOne({ slug: slug })
+        .populate('service', '_id')
+        .exec();
+
+      // produit similaire qui ont le même serviceId
+      const similarProducts = await this.productModel
+        .find({
+          slug: { $ne: slug }, // Exclure le produit actuel
+          service: product?.service._id, // Même serviceId
+        })
+        .select('name slug images') // Champs à retourner
+        .exec();
+
+      // Ajouter les produits similaires à la réponse
+      if (!product) {
+        return ApiResponse.error('Produit non trouvé');
+      }
+      return ApiResponse.success('Produit récupéré avec succès', {
+        ...product.toObject(),
+        similarProducts,
+      });
+    } catch (error) {
+      return ApiResponse.error('Erreur lors de la récupération du produit');
+    }
+  }
+
   async update(
     slug: string,
     updateProductDto: UpdateProductDto,
