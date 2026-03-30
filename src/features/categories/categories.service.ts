@@ -41,7 +41,7 @@ export class CategoriesService {
       const existingCategoryOrder = await this.categoryModel.findOne({
         order: createCategoryDto.order,
       });
-      if (existingCategoryOrder) {
+      if (createCategoryDto.order > 0 && existingCategoryOrder) {
         return ApiResponse.error('Une catégorie a déjà cet ordre');
       }
 

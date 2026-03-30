@@ -23,6 +23,20 @@ export class SharedService {
 
     return slug;
   }
+
+  generateReference(): string {
+    const chars =
+      'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let result = '';
+
+    for (let i = 0; i < 10; i++) {
+      const randomIndex = Math.floor(Math.random() * chars.length);
+      result += chars[randomIndex];
+    }
+
+    return result; // exemple: "a9Zk2P0xQ1"
+  }
+
   accessToken(user: User) {
     const payload = {
       id: user._id.toString(), // ✅ important
@@ -41,7 +55,7 @@ export class SharedService {
       email: user.email,
     };
 
-    return  this.jwtService.sign(payload, {
+    return this.jwtService.sign(payload, {
       secret: process.env.ACCESS_TOKEN_SECRET_KEY!,
       expiresIn: '24h' as StringValue,
     });
