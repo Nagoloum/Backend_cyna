@@ -51,6 +51,12 @@ export class CommandesController {
   }
 
   @UseGuards(AuthGuard)
+  @Get('by-user')
+  findAllByUser(@Query() queryDto: QueryDto, @CurrentUser() currentUser: any) {
+    return this.commandesService.findAllByUser(queryDto, currentUser);
+  }
+
+  @UseGuards(AuthGuard)
   @Get(':reference')
   findOne(
     @Param('reference') reference: string,
