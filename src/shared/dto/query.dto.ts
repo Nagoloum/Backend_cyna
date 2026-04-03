@@ -34,4 +34,19 @@ export class QueryDto {
   @IsOptional()
   @IsString()
   filters?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  year?: number; // Pour le regroupement/filtrage par année
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  serviceType?: string; // Pour filtrer par SOC, EDR, XDR, etc.
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  status?: string;
 }
