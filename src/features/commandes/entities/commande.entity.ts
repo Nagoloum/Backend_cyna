@@ -9,19 +9,19 @@ import {
 @Schema({ timestamps: true })
 export class Commande extends Document {
   @Prop({ required: true })
-  totalPrice: number;
+  totalPrice!: number;
   @Prop({ required: true })
-  reference: string;
+  reference!: string;
   @Prop({ required: true })
-  nbreProducts: number;
+  nbreProducts!: number;
   @Prop({ required: true, enum: StatutCommande })
-  statut: StatutCommande;
+  statut!: StatutCommande;
   @Prop({ type: [AbonnementSchema], default: [] })
-  abonnements: Abonnement[];
+  abonnements!: Abonnement[];
   @Prop({ type: Types.ObjectId, ref: 'User' })
-  user: Types.ObjectId;
+  user!: Types.ObjectId;
   @Prop({ type: Types.ObjectId, ref: 'CarteBancaire' })
-  cb: Types.ObjectId;
+  cb!: Types.ObjectId;
 }
 
 export const CommandeSchema = SchemaFactory.createForClass(Commande);
