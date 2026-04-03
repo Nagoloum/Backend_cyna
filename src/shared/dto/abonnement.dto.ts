@@ -1,24 +1,37 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEnum, IsNotEmpty } from 'class-validator';
+import {
+  IsEnum,
+  IsMongoId,
+  IsNotEmpty,
+  IsOptional,
+  Min,
+} from 'class-validator';
 import { PeriodeAbonnement } from 'src/shared/common/periode-abonnement.enum';
 export class AbonnementDto {
-  @ApiProperty()
-  @IsNotEmpty({ message: 'Date de fin est obligatoire' })
+  @ApiProperty({ required: false })
+  @IsOptional()
   dateFin: string;
-  @ApiProperty()
-  @IsNotEmpty({ message: 'Date de début est obligatoire' })
+
+  @ApiProperty({ required: false })
+  @IsOptional()
   dateDebut: string;
+
   @ApiProperty()
   @IsNotEmpty({ message: 'Quantité est obligatoire' })
+  @Min(1, { message: 'La quantité doit être supérieure à 0' })
   quantity: number;
-  @ApiProperty()
-  @IsNotEmpty({ message: 'Prix est obligatoire' })
+
+  @ApiProperty({ required: false })
+  @IsOptional()
   price: string;
+
   @ApiProperty({ enum: PeriodeAbonnement })
   @IsNotEmpty()
   @IsEnum(PeriodeAbonnement)
   periode: PeriodeAbonnement;
+
   @ApiProperty()
   @IsNotEmpty({ message: 'ID produit est obligatoire' })
+  @IsMongoId({ message: "L'ID produit doit être un ObjectId valide" })
   productId: string;
 }

@@ -5,8 +5,11 @@ import { config } from 'dotenv';
 
 config();
 type CheckoutItem = {
-  stripePriceId: string;
   quantity?: number;
+  stripePriceId?: string;
+  productName?: string;
+  unitAmount?: number;
+  interval?: 'month' | 'year';
 };
 
 @Injectable()
@@ -22,14 +25,50 @@ export class StripeService {
   async createCheckoutSession(items: CheckoutItem[], orderId: string) {
     return await this.stripe.checkout.sessions.create({
       payment_method_types: ['card'],
-      line_items: items.map((item) => ({
-        price: item.stripePriceId,
-        quantity: item.quantity ?? 1,
-      })),
+      line_items: items.map((item) => {
+        if (item.stripePriceId?.startsWith('price_')) {
+          return {
+            price: item.stripePriceId,
+            quantity: item.quantity ?? 1,
+          };
+        }
+
+        if (!item.productName || !item.unitAmount || !item.interval) {
+          throw new Error(
+            'Chaque article Stripe doit avoir un priceId valide ou un price_data complet',
+          );
+        }
+
+        return {
+          price_data: {
+            currency: 'eur',
+            product_data: {
+              name: item.productName,
+            },
+            unit_amount: item.unitAmount,
+            recurring: {
+              interval: item.interval,
+            },
+          },
+          quantity: item.quantity ?? 1,
+        };
+      }),
       mode: 'subscription',
       success_url: `http://localhost:3000/success?id=${orderId}`,
       cancel_url: `http://localhost:3000/cancel`,
       metadata: { orderId },
     });
+  }
+
+  constructEvent(payload: Buffer | string, signature?: string | string[]) {
+    if (!signature || Array.isArray(signature)) {
+      throw new Error('Signature Stripe manquante ou invalide');
+    }
+
+    return this.stripe.webhooks.constructEvent(
+      payload,
+      signature,
+      process.env.STRIPE_WEBHOOK_SECRET as string,
+    );
   }
 }

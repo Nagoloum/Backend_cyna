@@ -151,7 +151,7 @@ export class CategoriesService {
     }
   }
   async findOneById(id: string): Promise<{ _id: Types.ObjectId } | null> {
-    return await this.categoryModel.findOne({ _id: id }, '_id');
+    return this.categoryModel.findOne({ _id: id }, '_id');
   }
 
   async findCateroryBySlug(slug: string) {

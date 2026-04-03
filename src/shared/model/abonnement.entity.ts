@@ -2,7 +2,6 @@ import { Document, Types } from 'mongoose';
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { PeriodeAbonnement } from '../common/periode-abonnement.enum';
 import { StatutAbonnement } from '../common/statut-abonnement.enum';
-import { Product } from '../../features/products/entities/product.entity';
 @Schema({ _id: true }) // facultatif, _id est true par défaut
 export class Abonnement extends Document {
   @Prop({ required: true })
@@ -26,6 +25,6 @@ export class Abonnement extends Document {
   })
   statut: StatutAbonnement;
   @Prop({ type: Types.ObjectId, ref: 'Product' })
-  product: Product;
+  product: Types.ObjectId;
 }
 export const AbonnementSchema = SchemaFactory.createForClass(Abonnement);

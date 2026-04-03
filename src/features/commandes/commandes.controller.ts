@@ -7,17 +7,17 @@ import {
   Param,
   Delete,
   UseGuards,
-  UseInterceptors,
   ValidationPipe,
   Query,
+  Req,
+  Headers,
 } from '@nestjs/common';
 import { CommandesService } from './commandes.service';
 import { CreateCommandeDto } from './dto/create-commande.dto';
 import { UpdateCommandeDto } from './dto/update-commande.dto';
-import { ApiBearerAuth, ApiConsumes, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AuthorizeRoles } from 'src/shared/decorators/authorize-roles.decorator';
 import { AuthGuard } from 'src/shared/guards/auth.guard';
-import { NoFilesInterceptor } from '@nestjs/platform-express';
 import { FormDataTransformPipe } from 'src/shared/pipes/formdata-transform.pipe';
 import { CurrentUser } from 'src/shared/decorators/current-user.decorators';
 import { QueryDto } from 'src/shared/dto/query.dto';
@@ -32,14 +32,36 @@ export class CommandesController {
 
   @UseGuards(AuthGuard)
   @Post()
-  @ApiConsumes('multipart/form-data')
-  @UseInterceptors(NoFilesInterceptor())
   create(
-    @Body(FormDataTransformPipe)
-    createCommandeDto: any,
+    @Body()
+    createCommandeDto: CreateCommandeDto,
     @CurrentUser() currentUser: any,
   ) {
     return this.commandesService.create(createCommandeDto, currentUser);
+  }
+
+  @UseGuards(AuthGuard)
+  @Post('create')
+  createOrderWithStripe(
+    @Body(FormDataTransformPipe, ValidationPipe)
+    createCommandeDto: CreateCommandeDto,
+    @CurrentUser() currentUser: any,
+  ) {
+    return this.commandesService.createWithStripeCheckout(
+      createCommandeDto,
+      currentUser,
+    );
+  }
+
+  @Post('webhook')
+  async handleWebhook(
+    @Req() req: any,
+    @Headers('stripe-signature') stripeSignature?: string,
+  ) {
+    return this.commandesService.handleStripeWebhook(
+      req.rawBody ?? req.body,
+      stripeSignature,
+    );
   }
 
   // Seuls les admins peuvent voir toutes les commandes, les autres utilisateurs ne verront que leurs commandes
