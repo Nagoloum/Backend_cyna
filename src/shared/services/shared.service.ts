@@ -4,12 +4,11 @@ import { config } from 'dotenv';
 import { User } from 'src/features/users/entities/user.entity';
 import { StringValue } from 'ms';
 
-
 config();
 
 @Injectable()
 export class SharedService {
-  constructor(private jwtService: JwtService) { }
+  constructor(private jwtService: JwtService) {}
 
   private storedCode: string | null = null;
   private expiry: number | null = null;
@@ -90,22 +89,23 @@ export class SharedService {
   }
 
   generateSixDigitCode(): string {
-   const newVerificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const newVerificationCode = Math.floor(
+      100000 + Math.random() * 900000,
+    ).toString();
     this.storedCode = newVerificationCode;
     this.expiry = Date.now() + 5 * 60 * 1000; // Valide 5 minutes
     return newVerificationCode;
   }
-verifyCode(code: string): boolean {
-
+  verifyCode(code: string): boolean {
     if (!this.storedCode || !this.expiry) {
-        return false;
+      return false;
     }
     // Étape 2 : Vérification du temps
     if (Date.now() > this.expiry) {
-        this.storedCode = null; // on efface le code en memoire
-        return false;
+      this.storedCode = null; // on efface le code en memoire
+      return false;
     }
-    const isMatch = (code === this.storedCode);
+    const isMatch = code === this.storedCode;
     return isMatch;
-}
+  }
 }

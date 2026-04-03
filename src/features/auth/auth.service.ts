@@ -23,7 +23,7 @@ export class AuthService {
     private readonly sharedService: SharedService,
     private readonly sendEmailService: SendEmailService,
     private jwtService: JwtService,
-  ) { }
+  ) {}
 
   async login(loginDto: LoginDto) {
     try {
@@ -46,10 +46,10 @@ export class AuthService {
         return ApiResponse.error('Votre mot de passe est incorrect');
       }
       if (UserRoles.ADMIN?.includes(user.role)) {
-        //envoie un code d'identifiactions à 6 chiffres:    
+        //envoie un code d'identifiactions à 6 chiffres:
         const userEmail = user.email;
-        const code = this.sharedService.generateSixDigitCode()
-        this.sendEmailService.sendVerificationCode(userEmail, code)
+        const code = this.sharedService.generateSixDigitCode();
+        await this.sendEmailService.sendVerificationCode(userEmail, code);
       }
       const token = this.sharedService.accessToken(user);
       return ApiResponse.success('Connexion réussie', {
@@ -60,11 +60,11 @@ export class AuthService {
       return ApiResponse.error('Une erreur est survenue lors de la connexion ');
     }
   }
-  async verifyCode2FA(inputCode: string) {
+  verifyCode2FA(inputCode: string) {
     if (!inputCode) {
       return ApiResponse.error('Code de confirmation requis');
     }
-    const isValid = await this.sharedService.verifyCode(inputCode);
+    const isValid = this.sharedService.verifyCode(inputCode);
 
     if (!isValid) {
       return ApiResponse.error('Code de confirmation incorrect ou expiré');
