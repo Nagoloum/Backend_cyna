@@ -36,7 +36,7 @@ export class CommandesController {
   @UseInterceptors(NoFilesInterceptor())
   create(
     @Body(FormDataTransformPipe)
-    createCommandeDto: CreateCommandeDto,
+    createCommandeDto: any,
     @CurrentUser() currentUser: any,
   ) {
     return this.commandesService.create(createCommandeDto, currentUser);
