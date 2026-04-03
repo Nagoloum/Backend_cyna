@@ -41,7 +41,7 @@ export class CategoriesService {
       const existingCategoryOrder = await this.categoryModel.findOne({
         order: createCategoryDto.order,
       });
-      if (existingCategoryOrder) {
+      if (createCategoryDto.order > 0 && existingCategoryOrder) {
         return ApiResponse.error('Une catégorie a déjà cet ordre');
       }
 
@@ -151,7 +151,7 @@ export class CategoriesService {
     }
   }
   async findOneById(id: string): Promise<{ _id: Types.ObjectId } | null> {
-    return await this.categoryModel.findOne({ _id: id }, '_id');
+    return this.categoryModel.findOne({ _id: id }, '_id');
   }
 
   async findCateroryBySlug(slug: string) {
