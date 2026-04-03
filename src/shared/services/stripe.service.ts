@@ -15,11 +15,13 @@ type CheckoutItem = {
 @Injectable()
 export class StripeService {
   private readonly stripe: Stripe.Stripe;
+  private readonly appBaseUrl: string;
 
   constructor() {
     this.stripe = Stripe(process.env.STRIPE_SECRET_KEY as string, {
       apiVersion: '2026-03-25.dahlia',
     });
+    this.appBaseUrl = process.env.APP_BASE_URL || 'http://localhost:3000';
   }
 
   async createCheckoutSession(items: CheckoutItem[], orderId: string) {
@@ -54,10 +56,14 @@ export class StripeService {
         };
       }),
       mode: 'subscription',
-      success_url: `http://localhost:3000/success?id=${orderId}`,
-      cancel_url: `http://localhost:3000/cancel`,
+      success_url: `${this.appBaseUrl}/api/commandes/payment/success?orderId=${orderId}&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${this.appBaseUrl}/api/commandes/payment/cancel?orderId=${orderId}`,
       metadata: { orderId },
     });
+  }
+
+  async retrieveCheckoutSession(sessionId: string) {
+    return await this.stripe.checkout.sessions.retrieve(sessionId);
   }
 
   constructEvent(payload: Buffer | string, signature?: string | string[]) {

@@ -176,7 +176,7 @@ export class CommandesService {
       });
     } catch (error) {
       return ApiResponse.error(
-        'Erreur lors de la creation de la session Stripe : ' + error.message,
+        'Erreur lors de la creation de la session Stripe ',
       );
     }
   }
@@ -345,33 +345,51 @@ export class CommandesService {
     }
   }
 
-  async handleStripeWebhook(
-    payload: Buffer | string,
-    stripeSignature?: string,
-  ) {
+  async confirmPaymentSuccess(orderId?: string, sessionId?: string) {
     try {
-      const event = this.stripeService.constructEvent(payload, stripeSignature);
-
-      if (event.type === 'checkout.session.completed') {
-        const session = event.data.object as {
-          metadata?: { orderId?: string };
-        };
-        const orderId = session.metadata?.orderId;
-
-        if (!orderId) {
-          return ApiResponse.error(
-            "Le webhook Stripe ne contient pas d'identifiant de commande",
-          );
-        }
-
-        return await this.markAsPaid(orderId);
+      if (!orderId) {
+        return ApiResponse.error("L'identifiant de commande est obligatoire");
       }
 
-      return ApiResponse.success('Webhook Stripe recu', {
-        type: event.type,
+      if (!sessionId) {
+        return ApiResponse.error('Le session_id Stripe est obligatoire');
+      }
+
+      const session =
+        await this.stripeService.retrieveCheckoutSession(sessionId);
+
+      if (session.metadata?.orderId !== orderId) {
+        return ApiResponse.error(
+          'La session Stripe ne correspond pas a la commande demandee',
+        );
+      }
+
+      if (session.payment_status !== 'paid') {
+        return ApiResponse.success('Paiement Stripe non finalise', {
+          orderId,
+          sessionId,
+          paymentStatus: session.payment_status,
+          status: 'PENDING',
+        });
+      }
+
+      const updatedCommande = await this.markAsPaid(orderId);
+
+      if (!updatedCommande.success) {
+        return updatedCommande;
+      }
+
+      return ApiResponse.success('Commande payee avec succes', {
+        orderId,
+        sessionId,
+        paymentStatus: session.payment_status,
+        commande: updatedCommande.data,
       });
     } catch (error) {
-      return ApiResponse.error('Erreur lors du traitement du webhook', error);
+      return ApiResponse.error(
+        'Erreur lors de la confirmation du paiement Stripe',
+        error,
+      );
     }
   }
 

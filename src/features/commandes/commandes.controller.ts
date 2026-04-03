@@ -23,22 +23,13 @@ import { CurrentUser } from 'src/shared/decorators/current-user.decorators';
 import { QueryDto } from 'src/shared/dto/query.dto';
 import { UserRoles } from 'src/shared/common/user-roles.enum';
 import { AuthorizeGuard } from 'src/shared/guards/authorization.guard';
+import { ApiResponse } from 'src/shared/responses/api-response';
 
 @ApiTags('Commandes')
 @ApiBearerAuth()
 @Controller('commandes')
 export class CommandesController {
   constructor(private readonly commandesService: CommandesService) {}
-
-  @UseGuards(AuthGuard)
-  @Post()
-  create(
-    @Body()
-    createCommandeDto: CreateCommandeDto,
-    @CurrentUser() currentUser: any,
-  ) {
-    return this.commandesService.create(createCommandeDto, currentUser);
-  }
 
   @UseGuards(AuthGuard)
   @Post('create')
@@ -53,15 +44,17 @@ export class CommandesController {
     );
   }
 
-  @Post('webhook')
-  async handleWebhook(
-    @Req() req: any,
-    @Headers('stripe-signature') stripeSignature?: string,
+  @Get('payment/success')
+  paymentSuccess(
+    @Query('orderId') orderId?: string,
+    @Query('session_id') sessionId?: string,
   ) {
-    return this.commandesService.handleStripeWebhook(
-      req.rawBody ?? req.body,
-      stripeSignature,
-    );
+    return this.commandesService.confirmPaymentSuccess(orderId, sessionId);
+  }
+
+  @Get('payment/cancel')
+  paymentCancel(@Query('orderId') orderId?: string) {
+    return ApiResponse.error('Paiement annulé');
   }
 
   // Seuls les admins peuvent voir toutes les commandes, les autres utilisateurs ne verront que leurs commandes
