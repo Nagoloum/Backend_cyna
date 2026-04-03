@@ -5,7 +5,7 @@ import { SharedService } from 'src/shared/services/shared.service';
 import { ServicesService } from '../services/services.service';
 import { Product } from './entities/product.entity';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { ApiResponse } from 'src/shared/responses/api-response';
 import { resolveIdOrThrow } from 'src/shared/generic/resolveId';
 import { QueryDto } from 'src/shared/dto/query.dto';
@@ -176,6 +176,35 @@ export class ProductsService {
     }
   }
 
+  async findBySlug(slug: string) {
+    try {
+      const product = await this.productModel
+        .findOne({ slug: slug })
+        .populate('service', '_id')
+        .exec();
+
+      // produit similaire qui ont le même serviceId
+      const similarProducts = await this.productModel
+        .find({
+          slug: { $ne: slug }, // Exclure le produit actuel
+          service: product?.service._id, // Même serviceId
+        })
+        .select('name slug images') // Champs à retourner
+        .exec();
+
+      // Ajouter les produits similaires à la réponse
+      if (!product) {
+        return ApiResponse.error('Produit non trouvé');
+      }
+      return ApiResponse.success('Produit récupéré avec succès', {
+        ...product.toObject(),
+        similarProducts,
+      });
+    } catch (error) {
+      return ApiResponse.error('Erreur lors de la récupération du produit');
+    }
+  }
+
   async update(
     slug: string,
     updateProductDto: UpdateProductDto,
@@ -307,5 +336,9 @@ export class ProductsService {
       console.error(error);
       return ApiResponse.error('Erreur lors de la suppression du produit');
     }
+  }
+
+  async findOneById(id: string): Promise<{ _id: Types.ObjectId } | null> {
+    return this.productModel.findOne({ _id: id }, '_id');
   }
 }

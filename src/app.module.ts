@@ -7,6 +7,12 @@ import { AuthModule } from './features/auth/auth.module';
 import { CategoriesModule } from './features/categories/categories.module';
 import { ServicesModule } from './features/services/services.module';
 import { ProductsModule } from './features/products/products.module';
+import { SlidersModule } from './features/sliders/sliders.module';
+import { CarteBancairesModule } from './features/carte_bancaires/carte_bancaires.module';
+import { AdresseFacturationsModule } from './features/adresse_facturations/adresse_facturations.module';
+import { SearchModule } from './features/search/search.module';
+import { ContactModule } from './features/contact/contact.module';
+import { CommandesModule } from './features/commandes/commandes.module';
 
 config();
 @Module({
@@ -17,6 +23,12 @@ config();
     CategoriesModule,
     ServicesModule,
     ProductsModule,
+    SlidersModule,
+    CarteBancairesModule,
+    AdresseFacturationsModule,
+    SearchModule,
+    ContactModule,
+    CommandesModule,
   ],
   controllers: [],
   providers: [],

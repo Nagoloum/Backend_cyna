@@ -41,7 +41,10 @@ export class CategoriesController {
       limits: { fileSize: 2 * 1024 * 1024 },
       fileFilter: (req, file, cb) => {
         if (!file.mimetype.match(/\/(jpg|jpeg|png|webp)$/)) {
-          return cb(new BadRequestException('Format invalide'), false);
+          return cb(
+            new BadRequestException('Format invalide, JPG, PNG ou WebP'),
+            false,
+          );
         }
         cb(null, true);
       },
