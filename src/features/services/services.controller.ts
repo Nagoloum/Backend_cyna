@@ -37,7 +37,6 @@ export class ServicesController {
     @Body(FormDataTransformPipe, ValidationPipe)
     createServiceDto: CreateServiceDto,
   ) {
-    console.log(createServiceDto);
     return this.servicesService.create(createServiceDto);
   }
 

@@ -5,7 +5,7 @@ import { SharedService } from 'src/shared/services/shared.service';
 import { ServicesService } from '../services/services.service';
 import { Product } from './entities/product.entity';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { ApiResponse } from 'src/shared/responses/api-response';
 import { resolveIdOrThrow } from 'src/shared/generic/resolveId';
 import { QueryDto } from 'src/shared/dto/query.dto';
@@ -336,5 +336,9 @@ export class ProductsService {
       console.error(error);
       return ApiResponse.error('Erreur lors de la suppression du produit');
     }
+  }
+
+  async findOneById(id: string): Promise<{ _id: Types.ObjectId } | null> {
+    return this.productModel.findOne({ _id: id }, '_id');
   }
 }

@@ -53,8 +53,6 @@ export class ProductsController {
     createProductDto: CreateProductDto,
     @UploadedFiles() files: Express.Multer.File[], // Note le pluriel ici
   ) {
-    console.log(createProductDto);
-
     // files contiendra un tableau de tes images
     return this.productsService.create(createProductDto, files);
   }

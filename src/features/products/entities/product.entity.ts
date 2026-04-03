@@ -22,6 +22,12 @@ export class Product extends Document {
   @Prop({ type: Number, default: 0 })
   priceYear: number;
 
+  @Prop({ trim: true, default: '' })
+  stripePriceMonthId: string;
+
+  @Prop({ trim: true, default: '' })
+  stripePriceYearId: string;
+
   @Prop({ type: Number, default: 0, index: true })
   stock: number;
 
