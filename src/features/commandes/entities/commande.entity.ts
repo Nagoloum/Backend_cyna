@@ -3,6 +3,7 @@ import { Document, Types } from 'mongoose';
 import { CarteBancaire } from 'src/features/carte_bancaires/entities/carte_bancaire.entity';
 import { User } from 'src/features/users/entities/user.entity';
 import { StatutCommande } from 'src/shared/common/statut-commande.enum';
+import { Abonnement } from '../../../shared/model/abonnement.entity';
 
 @Schema({ timestamps: true })
 export class Commande extends Document {
@@ -14,6 +15,8 @@ export class Commande extends Document {
   nbreProducts: number;
   @Prop({ required: true, enum: StatutCommande })
   statut: StatutCommande;
+  @Prop({ type: [Abonnement], default: [] }) // Sous-document SEO
+  abonnements: Abonnement[];
   @Prop({ type: Types.ObjectId, ref: 'User' })
   user: User;
   @Prop({ type: Types.ObjectId, ref: 'CarteBancaire' })

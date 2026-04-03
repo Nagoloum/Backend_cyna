@@ -1,8 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsNotEmpty, ValidateNested } from 'class-validator';
-import { CreateAbonnementDto } from 'src/features/abonnements/dto/create-abonnement.dto';
 import { StatutCommande } from 'src/shared/common/statut-commande.enum';
+import { AbonnementDto } from '../../../shared/dto';
 
 export class CreateCommandeDto {
   @ApiProperty()
@@ -21,13 +21,8 @@ export class CreateCommandeDto {
   @ApiProperty()
   @IsNotEmpty({ message: 'ID carte bancaire est obligatoire' })
   cbId: string;
-  @ApiProperty({
-    type: () => CreateAbonnementDto,
-    isArray: true,
-    description: 'Liste des abonnements',
-  })
-  @IsNotEmpty({ message: 'ID abonnement est obligatoire' })
+  @ApiProperty({ type: [AbonnementDto] })
   @ValidateNested({ each: true })
-  @Type(() => CreateAbonnementDto)
-  abonnements: CreateAbonnementDto[];
+  @Type(() => AbonnementDto)
+  abonnements: AbonnementDto[];
 }
