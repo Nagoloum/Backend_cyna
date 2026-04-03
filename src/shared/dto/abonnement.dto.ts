@@ -1,7 +1,7 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty } from '@nestjs/swagger';
 import { IsEnum, IsNotEmpty } from 'class-validator';
 import { PeriodeAbonnement } from 'src/shared/common/periode-abonnement.enum';
-export class CreateAbonnementDto {
+export class AbonnementDto {
   @ApiProperty()
   @IsNotEmpty({ message: 'Date de fin est obligatoire' })
   dateFin: string;
@@ -18,10 +18,6 @@ export class CreateAbonnementDto {
   @IsNotEmpty()
   @IsEnum(PeriodeAbonnement)
   periode: PeriodeAbonnement;
-  @ApiProperty()
-  @ApiProperty()
-  @IsNotEmpty({ message: 'ID commande est obligatoire' })
-  commandeId: string;
   @ApiProperty()
   @IsNotEmpty({ message: 'ID produit est obligatoire' })
   productId: string;

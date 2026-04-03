@@ -1,4 +1,5 @@
 export enum StatutCommande {
-  PAYÉ = 'PAYÉE',
-  ANNULEE = 'ANNULÉE',
+  PENDING = 'PENDING',
+  PAID = 'PAID',
+  CANCEL = 'CANCEL',
 }
