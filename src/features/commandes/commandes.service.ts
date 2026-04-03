@@ -16,6 +16,7 @@ import { UserRoles } from 'src/shared/common/user-roles.enum';
 import { resolveIdOrThrow } from 'src/shared/generic/resolveId';
 import { ProductsService } from '../products/products.service';
 import { StripeService } from 'src/shared/services/stripe.service';
+import e from 'express';
 
 type BuiltAbonnement = {
   dateDebut: string;
@@ -132,10 +133,7 @@ export class CommandesService {
         populatedCommande,
       );
     } catch (error) {
-      return ApiResponse.error(
-        'Erreur lors de la creation de la commande',
-        error,
-      );
+      return ApiResponse.error('Erreur lors de la creation de la commande');
     }
   }
 
