@@ -11,6 +11,7 @@ import { SlidersModule } from './features/sliders/sliders.module';
 import { CarteBancairesModule } from './features/carte_bancaires/carte_bancaires.module';
 import { AdresseFacturationsModule } from './features/adresse_facturations/adresse_facturations.module';
 import { SearchModule } from './features/search/search.module';
+import { ContactModule } from './features/contact/contact.module';
 
 config();
 @Module({
@@ -24,7 +25,8 @@ config();
     SlidersModule,
     CarteBancairesModule,
     AdresseFacturationsModule,
-    SearchModule
+    SearchModule,
+    ContactModule
   ],
   controllers: [],
   providers: [],
