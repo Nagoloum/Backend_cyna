@@ -12,6 +12,7 @@ import { CarteBancairesModule } from './features/carte_bancaires/carte_bancaires
 import { AdresseFacturationsModule } from './features/adresse_facturations/adresse_facturations.module';
 import { SearchModule } from './features/search/search.module';
 import { ContactModule } from './features/contact/contact.module';
+import { CommandesModule } from './features/commandes/commandes.module';
 
 config();
 @Module({
@@ -26,7 +27,8 @@ config();
     CarteBancairesModule,
     AdresseFacturationsModule,
     SearchModule,
-    ContactModule
+    ContactModule,
+    CommandesModule,
   ],
   controllers: [],
   providers: [],
