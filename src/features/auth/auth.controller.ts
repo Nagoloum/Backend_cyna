@@ -10,10 +10,11 @@ import { User } from '../users/entities/user.entity';
 @ApiBearerAuth()
 @Controller('auth/')
 export class AuthController {
-  constructor(private readonly authService: AuthService) { }
+  constructor(private readonly authService: AuthService) {}
 
   @Post('login')
   login(@Body() loginDto: LoginDto) {
+    console.log(loginDto);
     return this.authService.login(loginDto);
   }
   @Post('check-code')
@@ -26,7 +27,7 @@ export class AuthController {
           example: '123456',
           description: 'Le code à 6 chiffres reçu par email',
           minLength: 6,
-          maxLength: 6
+          maxLength: 6,
         },
       },
       required: ['code'],

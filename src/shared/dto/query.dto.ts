@@ -19,7 +19,7 @@ export class QueryDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  search: string;
+  search!: string;
 
   @ApiPropertyOptional()
   @IsOptional()

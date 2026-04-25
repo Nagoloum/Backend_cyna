@@ -31,7 +31,10 @@ export class UsersService {
 
   async findOne(id: string) {
     try {
-      const user = await this.userModel.findById(id).select('-password').exec();
+      const user = await this.userModel
+        .findById(id)
+        .select('-password -verification')
+        .exec();
       if (!user) {
         return ApiResponse.error('Utilisateur introuvable');
       }
