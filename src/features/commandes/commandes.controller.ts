@@ -52,7 +52,7 @@ export class CommandesController {
   }
 
   // Endpoint pour confirmer le paiement
-  @UseGuards(AuthGuard)
+
   @Get('payment/success')
   paymentSuccess(
     @Query('orderId') orderId?: string,
@@ -91,16 +91,9 @@ export class CommandesController {
     return this.commandesService.findOne(reference, currentUser);
   }
 
+  @UseGuards(AuthGuard)
   @Patch(':id')
-  update(
-    @Param('id') id: string,
-    @Body() updateCommandeDto: UpdateCommandeDto,
-  ) {
-    return this.commandesService.update(+id, updateCommandeDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.commandesService.remove(+id);
+  cancel(@Param('id') id: string) {
+    return this.commandesService.cancel(id);
   }
 }

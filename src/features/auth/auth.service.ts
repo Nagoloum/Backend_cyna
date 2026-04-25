@@ -49,15 +49,25 @@ export class AuthService {
         //envoie un code d'identifiactions à 6 chiffres:
         const userEmail = user.email;
         const code = this.sharedService.generateSixDigitCode();
+        await this.userModel.findOneAndUpdate(
+          { email: userEmail },
+          {
+            verification: {
+              code,
+              dateExp: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+            },
+          },
+        );
         await this.sendEmailService.sendVerificationCode(userEmail, code);
       }
       const token = this.sharedService.accessToken(user);
       return ApiResponse.success('Connexion réussie', {
         token,
-        user,
       });
     } catch (error: any) {
-      return ApiResponse.error('Une erreur est survenue lors de la connexion ');
+      return ApiResponse.error(
+        'Une erreur est survenue lors de la connexion ' + error.message,
+      );
     }
   }
   verifyCode2FA(inputCode: string) {

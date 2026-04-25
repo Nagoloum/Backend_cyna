@@ -15,7 +15,13 @@ export class CreateCommandeDto {
   @ApiProperty()
   @IsNotEmpty({ message: 'ID carte bancaire est obligatoire' })
   @IsMongoId({ message: "L'ID carte bancaire doit être un ObjectId valide" })
-  cbId: string;
+  cbId!: string;
+  @ApiProperty()
+  @IsNotEmpty({ message: 'ID adresse de facturation est obligatoire' })
+  @IsMongoId({
+    message: "L'ID adresse de facturation doit être un ObjectId valide",
+  })
+  adresseFacturationId!: string;
 
   @ApiProperty({ type: [AbonnementDto] })
   @IsNotEmpty({ message: 'Les abonnements sont obligatoires' })
@@ -24,5 +30,5 @@ export class CreateCommandeDto {
   })
   @ValidateNested({ each: true })
   @Type(() => AbonnementDto)
-  abonnements: AbonnementDto[];
+  abonnements!: AbonnementDto[];
 }
