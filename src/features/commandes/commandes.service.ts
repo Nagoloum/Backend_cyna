@@ -16,6 +16,8 @@ import { UserRoles } from 'src/shared/common/user-roles.enum';
 import { resolveIdOrThrow } from 'src/shared/generic/resolveId';
 import { ProductsService } from '../products/products.service';
 import { StripeService } from 'src/shared/services/stripe.service';
+import e from 'express';
+import { AdresseFacturation } from '../adresse_facturations/entities/adresse_facturation.entity';
 
 type BuiltAbonnement = {
   dateDebut: string;
@@ -34,6 +36,8 @@ export class CommandesService {
     @InjectModel(Product.name) private readonly productModel: Model<Product>,
     @InjectModel(CarteBancaire.name)
     private readonly carteBancaireModel: Model<CarteBancaire>,
+    @InjectModel(AdresseFacturation.name)
+    private readonly adresseFacturationModel: Model<AdresseFacturation>,
     private readonly sharedService: SharedService,
     private readonly productService: ProductsService,
     private readonly stripeService: StripeService,
@@ -58,6 +62,20 @@ export class CommandesService {
         );
       }
 
+      const adresseFacturation = await this.adresseFacturationModel.findById(
+        createCommandeDto.adresseFacturationId,
+        '_id user',
+      );
+
+      if (!adresseFacturation) {
+        return ApiResponse.error('Adresse de facturation introuvable');
+      }
+
+      if (!adresseFacturation.user?.equals(userId)) {
+        return ApiResponse.error(
+          'Vous ne pouvez pas utiliser cette adresse de facturation',
+        );
+      }
       const builtAbonnements: BuiltAbonnement[] = [];
       let totalPrice = 0;
       let nbreProducts = 0;
@@ -91,8 +109,8 @@ export class CommandesService {
             ? Number(product.priceYear ?? 0)
             : Number(product.priceMonth ?? 0);
 
-        const dateDebut = this.normalizeStartDate(abonnementDto.dateDebut);
-        const dateFin = this.computeEndDate(dateDebut, abonnementDto.periode);
+        const dateDebut = this.normalizeStartDate();
+        const dateFin = this.computeEndDate(abonnementDto.periode);
         const linePrice = unitPrice * quantity;
 
         totalPrice += linePrice;
@@ -115,16 +133,17 @@ export class CommandesService {
         nbreProducts,
         statut: StatutCommande.PENDING,
         cb: new Types.ObjectId(createCommandeDto.cbId),
+        addresseFacturation: new Types.ObjectId(
+          createCommandeDto.adresseFacturationId,
+        ),
         user: new Types.ObjectId(userId),
+        periode: builtAbonnements[0].periode,
         abonnements: builtAbonnements,
       });
       const savedCommande = await commande.save();
 
       const populatedCommande = await this.commandeModel
-        .findById(savedCommande._id)
-        .populate('user', 'firstName lastName email')
-        .populate('cb', 'carteName carteNumber carteDate')
-        .populate('abonnements.product', 'name slug priceMonth priceYear')
+        .findById(savedCommande._id, '_id')
         .exec();
 
       return ApiResponse.success(
@@ -132,10 +151,7 @@ export class CommandesService {
         populatedCommande,
       );
     } catch (error) {
-      return ApiResponse.error(
-        'Erreur lors de la creation de la commande',
-        error,
-      );
+      return ApiResponse.error('Erreur lors de la creation de la commande');
     }
   }
 
@@ -170,7 +186,6 @@ export class CommandesService {
       );
 
       return ApiResponse.success('Session Stripe creee avec succes', {
-        commande,
         url: session.url,
         sessionId: session.id,
       });
@@ -241,43 +256,131 @@ export class CommandesService {
       const userId = currentUser?.data?._id;
 
       if (!userId || !isValidObjectId(userId)) {
-        return ApiResponse.error('Utilisateur non authentifie');
+        return ApiResponse.error('Utilisateur non authentifié');
       }
 
-      const { page = 1, limit = 10, sortOrder } = queryDto;
+      const {
+        page = 1,
+        limit = 10,
+        sortOrder,
+        search,
+        year,
+        serviceType,
+        status,
+      } = queryDto;
+
       const skip = (page - 1) * limit;
-      const selectedSortOrder: 1 | -1 =
-        typeof sortOrder === 'string' && sortOrder.toLowerCase() === 'asc'
-          ? 1
-          : -1;
+      const selectedSortOrder: 1 | -1 = sortOrder === 'asc' ? 1 : -1;
 
-      const whereQuery = {
-        user: new Types.ObjectId(userId),
-      };
+      // --- PIPELINE D'AGRÉGATION ---
+      const pipeline: any[] = [
+        // 1. Filtrer par utilisateur d'abord (très important pour la performance)
+        { $match: { user: new Types.ObjectId(userId) } },
 
-      const [data, total] = await Promise.all([
-        this.commandeModel
-          .find(whereQuery)
-          .populate('cb', 'carteName carteNumber carteDate')
-          .populate('abonnements.product', 'name slug priceMonth priceYear')
-          .sort({ createdAt: selectedSortOrder })
-          .skip(skip)
-          .limit(limit)
-          .exec(),
-        this.commandeModel.countDocuments(whereQuery).exec(),
-      ]);
+        // // 2. "Joindre" les produits (équivalent de populate)
+        // {
+        //   $lookup: {
+        //     from: 'products', // Nom exact de ta collection de produits en DB
+        //     localField: 'abonnements.product',
+        //     foreignField: '_id',
+        //     as: 'productDetails',
+        //   },
+        // },
 
-      return ApiResponse.success('Liste des commandes utilisateur recuperee', {
-        data,
+        // 3. Ajouter des champs calculés pour la recherche (Date -> String)
+        {
+          $addFields: {
+            createdAtStr: {
+              $dateToString: { format: '%d/%m/%Y %H:%M', date: '$createdAt' },
+            },
+          },
+        },
+        {
+          $project: {
+            _id: 1,
+            createdAt: 1,
+            statut: 1,
+            serviceType: 1,
+            reference: 1,
+            totalPrice: 1,
+            nbreProducts: 1,
+            periode: 1,
+            // Champs techniques pour les filtres
+            createdAtStr: 1,
+          },
+        },
+      ];
+
+      // 4. Filtres dynamiques
+      const matchConditions: any = {};
+
+      if (search) {
+        matchConditions.$or = [
+          { createdAtStr: { $regex: search, $options: 'i' } },
+          // { 'productDetails.name': { $regex: search, $options: 'i' } },
+          { statut: { $regex: search, $options: 'i' } },
+        ];
+      }
+
+      if (year) {
+        const start = new Date(`${year}-01-01`);
+        const end = new Date(`${year}-12-31T23:59:59.999Z`);
+        matchConditions.createdAt = { $gte: start, $lte: end };
+      }
+
+      if (serviceType) {
+        matchConditions['abonnements.type'] = serviceType;
+      }
+
+      if (status) {
+        matchConditions.statut = status;
+      }
+
+      // Appliquer les filtres s'ils existent
+      if (Object.keys(matchConditions).length > 0) {
+        pipeline.push({ $match: matchConditions });
+      }
+
+      // 5. Tri, Skip et Limit
+      pipeline.push({ $sort: { createdAt: selectedSortOrder } });
+
+      // Utilisation de $facet pour récupérer les données ET le total en une seule requête
+      const aggregationResult = await this.commandeModel
+        .aggregate([
+          ...pipeline,
+          {
+            $facet: {
+              metadata: [{ $count: 'total' }],
+              data: [{ $skip: skip }, { $limit: limit }],
+            },
+          },
+        ])
+        .exec();
+
+      const data = aggregationResult[0].data;
+      const total = aggregationResult[0].metadata[0]?.total || 0;
+
+      // 6. Regroupement par année (Logique JS pour l'affichage)
+      const groupedData = data.reduce(
+        (acc, curr) => {
+          const yearKey = new Date(curr.createdAt).getFullYear().toString();
+          if (!acc[yearKey]) acc[yearKey] = [];
+          acc[yearKey].push(curr);
+          return acc;
+        },
+        {} as Record<string, any[]>,
+      );
+
+      return ApiResponse.success('Liste des commandes récupérée', {
+        results: year ? data : groupedData,
         total,
         page,
         limit,
         totalPage: Math.ceil(total / limit),
       });
     } catch (error) {
-      return ApiResponse.error(
-        'Erreur lors de la recuperation des commandes utilisateur',
-      );
+      console.error(error);
+      return ApiResponse.error('Erreur lors de la récupération des commandes');
     }
   }
 
@@ -379,7 +482,7 @@ export class CommandesService {
         return updatedCommande;
       }
 
-      return ApiResponse.success('Commande payee avec succes', {
+      return ApiResponse.success('Commande payée avec succes', {
         orderId,
         sessionId,
         paymentStatus: session.payment_status,
@@ -393,16 +496,40 @@ export class CommandesService {
     }
   }
 
-  update(id: number, updateCommandeDto: UpdateCommandeDto) {
-    return `This action updates a #${id} commande`;
+  async cancel(id: string) {
+    try {
+      if (!isValidObjectId(id)) {
+        return ApiResponse.error("L'id de la commande est invalide");
+      }
+
+      const cancelledCommande = await this.commandeModel
+        .findByIdAndUpdate(
+          id,
+          {
+            $set: {
+              statut: StatutCommande.CANCEL,
+              'abonnements.$[].statut': StatutAbonnement.CANCELED,
+            },
+          },
+          { new: true },
+        )
+        .exec();
+
+      if (!cancelledCommande) {
+        return ApiResponse.error('Commande introuvable');
+      }
+
+      return ApiResponse.success('Commande annulée avec succes');
+    } catch (error) {
+      return ApiResponse.error(
+        'Erreur lors de lannulation de la commande',
+        error,
+      );
+    }
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} commande`;
-  }
-
-  private normalizeStartDate(dateDebut?: string) {
-    const startDate = dateDebut ? new Date(dateDebut) : new Date();
+  private normalizeStartDate() {
+    const startDate = new Date();
 
     if (Number.isNaN(startDate.getTime())) {
       return new Date();
@@ -411,8 +538,8 @@ export class CommandesService {
     return startDate;
   }
 
-  private computeEndDate(startDate: Date, periode: PeriodeAbonnement) {
-    const endDate = new Date(startDate);
+  private computeEndDate(periode: PeriodeAbonnement) {
+    const endDate = new Date();
 
     if (periode === PeriodeAbonnement.ANNUEL) {
       endDate.setFullYear(endDate.getFullYear() + 1);

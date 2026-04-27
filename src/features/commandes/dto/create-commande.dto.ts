@@ -12,20 +12,16 @@ import { StatutCommande } from 'src/shared/common/statut-commande.enum';
 import { AbonnementDto } from '../../../shared/dto';
 
 export class CreateCommandeDto {
-  @ApiProperty({
-    enum: StatutCommande,
-    enumName: 'CommandeStatus',
-    description: 'Statut de la commande',
-    required: false,
-  })
-  @IsOptional()
-  @IsEnum(StatutCommande)
-  statut: StatutCommande;
-
   @ApiProperty()
   @IsNotEmpty({ message: 'ID carte bancaire est obligatoire' })
   @IsMongoId({ message: "L'ID carte bancaire doit être un ObjectId valide" })
-  cbId: string;
+  cbId!: string;
+  @ApiProperty()
+  @IsNotEmpty({ message: 'ID adresse de facturation est obligatoire' })
+  @IsMongoId({
+    message: "L'ID adresse de facturation doit être un ObjectId valide",
+  })
+  adresseFacturationId!: string;
 
   @ApiProperty({ type: [AbonnementDto] })
   @IsNotEmpty({ message: 'Les abonnements sont obligatoires' })
@@ -34,5 +30,5 @@ export class CreateCommandeDto {
   })
   @ValidateNested({ each: true })
   @Type(() => AbonnementDto)
-  abonnements: AbonnementDto[];
+  abonnements!: AbonnementDto[];
 }
