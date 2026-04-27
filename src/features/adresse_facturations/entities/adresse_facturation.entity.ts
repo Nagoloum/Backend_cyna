@@ -4,25 +4,27 @@ import { User } from 'src/features/users/entities/user.entity';
 @Schema({ timestamps: true })
 export class AdresseFacturation extends Document {
   @Prop({ required: true })
-  firstName: string;
+  firstName!: string;
   @Prop({ required: true })
-  lastName: string;
+  lastName!: string;
   @Prop({ required: true })
-  adresse: string;
+  adresse!: string;
   @Prop()
-  complementAdresse: string;
+  complementAdresse!: string;
   @Prop({ required: true })
-  city: string;
+  city!: string;
   @Prop({ required: true })
-  region: string;
+  region!: string;
   @Prop({ required: true })
-  country: string;
+  country!: string;
   @Prop({ required: true })
-  codePostal: string;
+  codePostal!: string;
   @Prop({ required: true })
-  phone: string;
+  phone!: string;
+  @Prop({ required: true, default: false })
+  defaultAf!: boolean;
   @Prop({ type: Types.ObjectId, ref: 'User' })
-  user: User;
+  user!: User;
 }
 
 export const AdresseFacturationSchema =

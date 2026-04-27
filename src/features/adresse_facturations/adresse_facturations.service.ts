@@ -4,7 +4,7 @@ import { UpdateAdresseFacturationDto } from './dto/update-adresse_facturation.dt
 import { ApiResponse } from 'src/shared/responses/api-response';
 import { InjectModel } from '@nestjs/mongoose';
 import { AdresseFacturation } from './entities/adresse_facturation.entity';
-import { isValidObjectId, Model } from 'mongoose';
+import { isValidObjectId, Model, Types } from 'mongoose';
 import { UserRoles } from 'src/shared/common/user-roles.enum';
 import { QueryDto } from 'src/shared/dto/query.dto';
 
@@ -40,6 +40,36 @@ export class AdresseFacturationsService {
     } catch (error) {
       return ApiResponse.error(
         "Erreur lors de la création de l'adresse de facturation",
+      );
+    }
+  }
+  async findDefault(id: string, currentUser: any) {
+    try {
+      if (!isValidObjectId(id)) {
+        return ApiResponse.error("L'id est invalide");
+      }
+      await this.adresseModel.updateMany(
+        { user: currentUser?.data?._id, _id: { $ne: new Types.ObjectId(id) } },
+        { $set: { defaultAf: false } },
+      );
+      const adresseFacturation = await this.adresseModel.findOne({
+        _id: new Types.ObjectId(id),
+        user: currentUser?.data?._id,
+        defaultAf: true,
+      });
+
+      if (!adresseFacturation) {
+        return ApiResponse.error(
+          'Adresse de facturation par défaut non trouvée',
+        );
+      }
+
+      return ApiResponse.success(
+        'Adresse de facturation mise par défaut avec succès',
+      );
+    } catch (error) {
+      return ApiResponse.error(
+        "Erreur lors de la récupération de l'adresse de facturation par défaut",
       );
     }
   }

@@ -4,7 +4,7 @@ import { UpdateCarteBancaireDto } from './dto/update-carte_bancaire.dto';
 import { ApiResponse } from 'src/shared/responses/api-response';
 import { InjectModel } from '@nestjs/mongoose';
 import { CarteBancaire } from './entities/carte_bancaire.entity';
-import { isValidObjectId, Model } from 'mongoose';
+import { isValidObjectId, Model, Types } from 'mongoose';
 import { UserRoles } from 'src/shared/common/user-roles.enum';
 
 @Injectable()
@@ -82,6 +82,32 @@ export class CarteBancairesService {
         'Adresse de facturation recuperee avec success',
         carteBancaire,
       );
+    } catch (error) {
+      return ApiResponse.error(
+        'Erreur lors de la recupération de la carte bancaire',
+      );
+    }
+  }
+
+  async findDefault(id: string, currentUser: any) {
+    try {
+      if (!isValidObjectId(id)) {
+        return ApiResponse.error("L'id est invalide");
+      }
+      await this.carteBancaireModel.updateMany(
+        { user: currentUser?.data?._id, _id: { $ne: new Types.ObjectId(id) } },
+        { $set: { defaultCb: false } },
+      );
+      const carteBancaire = await this.carteBancaireModel.findOne({
+        _id: new Types.ObjectId(id),
+        user: currentUser?.data?._id,
+        defaultCb: true,
+      });
+
+      if (!carteBancaire) {
+        return ApiResponse.error('Carte bancaire non trouvee');
+      }
+      return ApiResponse.success('Carte bancaire recuperee avec success');
     } catch (error) {
       return ApiResponse.error(
         'Erreur lors de la recupération de la carte bancaire',
