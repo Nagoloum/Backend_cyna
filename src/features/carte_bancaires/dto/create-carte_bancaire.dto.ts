@@ -18,5 +18,5 @@ export class CreateCarteBancaireDto {
   @IsNotEmpty({ message: 'CVV de carte est obligatoire' })
   carteCVV!: string;
   @ApiPropertyOptional()
-  defaultCb!: boolean;
+  isDefault!: boolean;
 }

@@ -28,5 +28,5 @@ export class CreateAdresseFacturationDto {
   @IsNotEmpty({ message: 'Numéro de téléphone est obligatoire' })
   phone!: string;
   @ApiPropertyOptional()
-  defaultAf!: boolean;
+  isDefault!: boolean;
 }
