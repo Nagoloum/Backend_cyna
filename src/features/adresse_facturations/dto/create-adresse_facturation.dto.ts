@@ -3,28 +3,30 @@ import { IsNotEmpty } from 'class-validator';
 export class CreateAdresseFacturationDto {
   @ApiProperty()
   @IsNotEmpty({ message: 'Nom est obligatoire' })
-  firstName: string;
+  firstName!: string;
   @ApiProperty()
   @IsNotEmpty({ message: 'Prénom est obligatoire' })
-  lastName: string;
+  lastName!: string;
   @ApiProperty()
   @IsNotEmpty({ message: 'adresse est obligatoire' })
-  adresse: string;
+  adresse!: string;
   @ApiPropertyOptional()
-  complementAdresse: string;
+  complementAdresse!: string;
   @ApiProperty()
   @IsNotEmpty({ message: 'Ville est obligatoire' })
-  city: string;
+  city!: string;
   @ApiProperty()
   @IsNotEmpty({ message: 'Région est obligatoire' })
-  region: string;
+  region!: string;
   @ApiProperty()
   @IsNotEmpty({ message: 'Pays est obligatoire' })
-  country: string;
+  country!: string;
   @ApiProperty()
   @IsNotEmpty({ message: 'Code postal est obligatoire' })
-  codePostal: string;
+  codePostal!: string;
   @ApiProperty()
   @IsNotEmpty({ message: 'Numéro de téléphone est obligatoire' })
-  phone: string;
+  phone!: string;
+  @ApiPropertyOptional()
+  defaultAf!: boolean;
 }
