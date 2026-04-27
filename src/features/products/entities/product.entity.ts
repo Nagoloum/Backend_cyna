@@ -8,40 +8,40 @@ export class Product extends Document {
   // FK vers la collection Service
 
   @Prop({ required: true, trim: true, index: true })
-  name: string;
+  name!: string;
 
   @Prop({ required: true, trim: true })
-  slug: string;
+  slug!: string;
 
   @Prop({ type: [ImageSchema], default: [] })
-  images: Image[];
+  images!: Image[];
 
   @Prop({ type: Number, default: 0, index: true })
-  priceMonth: number;
+  priceMonth!: number;
 
   @Prop({ type: Number, default: 0 })
-  priceYear: number;
+  priceYear!: number;
 
   @Prop({ trim: true, default: '' })
-  stripePriceMonthId: string;
+  stripePriceMonthId!: string;
 
   @Prop({ trim: true, default: '' })
-  stripePriceYearId: string;
+  stripePriceYearId!: string;
 
   @Prop({ type: Number, default: 0, index: true })
-  stock: number;
+  stock!: number;
 
   @Prop({ type: Boolean, default: false })
-  is_selected: boolean;
+  is_selected!: boolean;
 
   @Prop({ type: Boolean, default: false })
-  priority: boolean;
+  priority!: boolean;
 
   @Prop()
-  order: number;
+  order!: number;
 
   @Prop({ type: Types.ObjectId, ref: 'Service', required: true, index: true })
-  service: Service;
+  service!: Service;
 }
 
 export const ProductSchema = SchemaFactory.createForClass(Product);

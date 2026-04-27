@@ -63,6 +63,7 @@ export class AuthService {
       const token = this.sharedService.accessToken(user);
       return ApiResponse.success('Connexion réussie', {
         token,
+        role: user.role,
       });
     } catch (error: any) {
       return ApiResponse.error(
