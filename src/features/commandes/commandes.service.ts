@@ -25,6 +25,7 @@ type BuiltAbonnement = {
   quantity: number;
   periode: PeriodeAbonnement;
   price: number;
+  keyLicence: string;
   statut: StatutAbonnement;
   product: Types.ObjectId;
 };
@@ -124,6 +125,7 @@ export class CommandesService {
           price: linePrice,
           statut: StatutAbonnement.PENDING,
           product: product._id,
+          keyLicence: this.sharedService.generateLicenseKey(),
         });
       }
 
@@ -390,7 +392,7 @@ export class CommandesService {
         .findOne({ reference })
         .populate('user', 'firstName lastName email role')
         .populate('cb', 'carteName carteNumber carteDate')
-        .populate('abonnements.product', 'name slug priceMonth priceYear')
+        .populate('abonnements.product', 'name slug images')
         .exec();
 
       if (!commande) {
@@ -432,7 +434,7 @@ export class CommandesService {
         )
         .populate('user', 'firstName lastName email')
         .populate('cb', 'carteName carteNumber carteDate')
-        .populate('abonnements.product', 'name slug priceMonth priceYear')
+        .populate('abonnements.product', 'name slug')
         .exec();
 
       if (!updatedCommande) {
@@ -495,6 +497,73 @@ export class CommandesService {
       );
     }
   }
+  async findAbonnementsByUser(currentUser: any) {
+    try {
+      const userId = currentUser?.data?._id;
+
+      if (!userId || !isValidObjectId(userId)) {
+        return ApiResponse.error('Utilisateur non authentifié');
+      }
+
+      const abonnements = await this.commandeModel
+        .find({ user: new Types.ObjectId(userId) }, 'abonnements')
+        .populate('abonnements.product', 'name slug images')
+        .exec();
+
+      const flattenedAbonnements = abonnements.flatMap((commande) =>
+        commande.abonnements.map((abonnement) => ({
+          ...abonnement.toObject(),
+          product: abonnement.product,
+        })),
+      );
+
+      return ApiResponse.success("Abonnements de l'utilisateur récupérés", {
+        abonnements: flattenedAbonnements,
+      });
+    } catch (error) {
+      console.error(error);
+      return ApiResponse.error(
+        "Erreur lors de la récupération des abonnements de l'utilisateur",
+      );
+    }
+  }
+
+  async resilierAbonnementsByUser(id: string, currentUser: any) {
+    try {
+      const userId = currentUser?.data?._id;
+
+      if (!userId || !isValidObjectId(userId)) {
+        return ApiResponse.error('Utilisateur non authentifié');
+      }
+
+      const commande = await this.commandeModel
+        .findOne({
+          abonnements: { $elemMatch: { _id: new Types.ObjectId(id) } },
+          user: new Types.ObjectId(userId),
+        })
+        .exec();
+
+      if (!commande) {
+        return ApiResponse.error('Abonnement introuvable pour cet utilisateur');
+      }
+      const abonnementIndex = commande.abonnements.findIndex((abonnement) =>
+        abonnement._id.equals(id),
+      );
+
+      if (abonnementIndex === -1) {
+        return ApiResponse.error('Abonnement introuvable dans la commande');
+      }
+
+      commande.abonnements[abonnementIndex].statut = StatutAbonnement.CANCELED;
+      await commande.save();
+
+      return ApiResponse.success('Abonnement résilié avec succès');
+    } catch (error) {
+      return ApiResponse.error(
+        "Erreur lors de la résiliation des abonnements de l'utilisateur",
+      );
+    }
+  }
 
   async cancel(id: string) {
     try {
@@ -507,8 +576,8 @@ export class CommandesService {
           id,
           {
             $set: {
-              statut: StatutCommande.CANCEL,
-              'abonnements.$[].statut': StatutAbonnement.CANCELED,
+              statut: StatutCommande.CANCELED,
+              'abonnements.$[].statut': StatutAbonnement.DESACTIVE,
             },
           },
           { new: true },

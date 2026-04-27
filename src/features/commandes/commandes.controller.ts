@@ -90,6 +90,20 @@ export class CommandesController {
   ) {
     return this.commandesService.findOne(reference, currentUser);
   }
+  @UseGuards(AuthGuard)
+  @Get('abonnements/by-user')
+  findAbonnementsByUser(@CurrentUser() currentUser: any) {
+    return this.commandesService.findAbonnementsByUser(currentUser);
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('abonnement/resilier/:id')
+  resilierAbonnementByUser(
+    @Param('id') id: string,
+    @CurrentUser() currentUser: any,
+  ) {
+    return this.commandesService.resilierAbonnementsByUser(id, currentUser);
+  }
 
   @UseGuards(AuthGuard)
   @Patch(':id')

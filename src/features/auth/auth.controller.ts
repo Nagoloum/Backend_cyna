@@ -1,19 +1,32 @@
-import { Controller, Post, Body, Query, Get, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Query,
+  Get,
+  UseGuards,
+  ValidationPipe,
+  UseInterceptors,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { ApiBearerAuth, ApiBody, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import { LoginDto, RegisterDto } from './dto/auth.dto';
 import { CurrentUser } from 'src/shared/decorators/current-user.decorators';
 import { AuthGuard } from 'src/shared/guards/auth.guard';
 import { User } from '../users/entities/user.entity';
+import { FormDataTransformPipe } from 'src/shared/pipes/formdata-transform.pipe';
+import { NoFilesInterceptor } from '@nestjs/platform-express';
 
 @ApiTags('Auth')
 @ApiBearerAuth()
 @Controller('auth/')
+@ApiConsumes('multipart/form-data')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('login')
-  login(@Body() loginDto: LoginDto) {
+  @UseInterceptors(NoFilesInterceptor())
+  login(@Body(FormDataTransformPipe, ValidationPipe) loginDto: LoginDto) {
     console.log(loginDto);
     return this.authService.login(loginDto);
   }
@@ -38,7 +51,10 @@ export class AuthController {
     return this.authService.verifyCode2FA(code);
   }
   @Post('register')
-  register(@Body() registerDto: RegisterDto) {
+  @UseInterceptors(NoFilesInterceptor())
+  register(
+    @Body(FormDataTransformPipe, ValidationPipe) registerDto: RegisterDto,
+  ) {
     return this.authService.register(registerDto);
   }
   @Get('email-confirmation')
@@ -61,7 +77,10 @@ export class AuthController {
       required: ['email'],
     },
   })
-  resetforgotPassword(@Body('email') email: string) {
+  @UseInterceptors(NoFilesInterceptor())
+  resetforgotPassword(
+    @Body(FormDataTransformPipe, ValidationPipe) email: string,
+  ) {
     return this.authService.forgotPassword(email);
   }
   @Post('change-password')
@@ -74,9 +93,10 @@ export class AuthController {
       required: ['password'],
     },
   })
+  @UseInterceptors(NoFilesInterceptor())
   changePassword(
     @Query('token') token: string,
-    @Body('password') password: string,
+    @Body(FormDataTransformPipe, ValidationPipe) password: string,
   ) {
     return this.authService.resetPassword(token, password);
   }

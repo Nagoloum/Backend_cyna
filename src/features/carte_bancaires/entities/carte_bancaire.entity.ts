@@ -5,17 +5,17 @@ import { User } from 'src/features/users/entities/user.entity';
 @Schema({ timestamps: true })
 export class CarteBancaire extends Document {
   @Prop({ required: true })
-  carteName: string;
+  carteName!: string;
 
   @Prop({ required: true })
-  carteNumber: string;
+  carteNumber!: string;
 
   @Prop({ required: true })
-  carteDate: string;
+  carteDate!: string;
 
   @Prop({ required: true })
-  carteCVV: string;
+  carteCVV!: string;
   @Prop({ type: Types.ObjectId, ref: 'User' })
-  user: User;
+  user!: User;
 }
 export const CarteBancaireSchema = SchemaFactory.createForClass(CarteBancaire);

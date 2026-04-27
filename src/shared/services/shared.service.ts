@@ -26,6 +26,21 @@ export class SharedService {
 
     return slug;
   }
+  generateLicenseKey(groupsCount: number = 4, groupLength: number = 4): string {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const groups: string[] = [];
+
+    for (let i = 0; i < groupsCount; i++) {
+      let group = '';
+      for (let j = 0; j < groupLength; j++) {
+        const randomIndex = Math.floor(Math.random() * chars.length);
+        group += chars[randomIndex];
+      }
+      groups.push(group);
+    }
+
+    return groups.join('-');
+  }
 
   generateReference(): string {
     const chars =
