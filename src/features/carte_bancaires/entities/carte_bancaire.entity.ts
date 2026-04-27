@@ -13,7 +13,7 @@ export class CarteBancaire extends Document {
   @Prop({ required: true })
   carteDate!: string;
   @Prop({ required: true, default: false })
-  defaultCb!: boolean;
+  isDefault!: boolean;
 
   @Prop({ required: true })
   carteCVV!: string;

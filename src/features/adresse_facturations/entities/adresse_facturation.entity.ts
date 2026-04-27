@@ -22,7 +22,7 @@ export class AdresseFacturation extends Document {
   @Prop({ required: true })
   phone!: string;
   @Prop({ required: true, default: false })
-  defaultAf!: boolean;
+  isDefault!: boolean;
   @Prop({ type: Types.ObjectId, ref: 'User' })
   user!: User;
 }
