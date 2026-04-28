@@ -3,14 +3,14 @@ import { Document } from 'mongoose';
 @Schema({ timestamps: true })
 export class Category extends Document {
   @Prop({ required: true })
-  name: string;
+  name!: string;
   @Prop({ required: true, unique: true })
-  slug: string;
+  slug!: string;
   @Prop()
-  image: string;
+  image!: string;
   @Prop()
-  description: string;
+  description!: string;
   @Prop({ required: true })
-  order: number;
+  order!: number;
 }
 export const CategorySchema = SchemaFactory.createForClass(Category);

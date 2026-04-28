@@ -5,7 +5,7 @@ import { IsEmpty, IsNotEmpty, IsString } from 'class-validator';
 export class CreateCategoryDto {
   @IsNotEmpty({ message: 'Le nom est obligatoire' })
   @ApiProperty()
-  name: string;
+  name!: string;
 
   @ApiProperty({
     type: 'string',
@@ -13,12 +13,12 @@ export class CreateCategoryDto {
     description: 'Image uniquement (JPG, PNG, WebP), max 2Mo',
     required: true,
   })
-  newImage: string;
+  newImage!: string;
 
   @ApiPropertyOptional()
-  description: string;
+  description!: string;
 
   @ApiProperty()
   @IsNotEmpty({ message: 'L’ordre est obligatoire' })
-  order: number;
+  order!: number;
 }

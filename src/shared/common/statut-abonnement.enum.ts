@@ -1,6 +1,7 @@
 export enum StatutAbonnement {
   PENDING = 'PENDING',
-  ACTIVE = 'ACTIVE',
+  ACTIVE = 'ACTIF',
+  DESACTIVE = 'DESACTIF',
   FINISHED = 'FINISHED',
   CANCELED = 'CANCELED',
 }

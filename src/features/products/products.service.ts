@@ -98,7 +98,7 @@ export class ProductsService {
           {
             priority: true,
           },
-          'name slug image order',
+          'name slug images order',
         )
         .sort({ order: 1 })
         .exec();

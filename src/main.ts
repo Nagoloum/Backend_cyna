@@ -12,17 +12,17 @@ async function bootstrap() {
   // prefix API
   app.setGlobalPrefix('api');
   app.useGlobalPipes(new ValidationPipe());
-  app.useGlobalPipes(
-    new ValidationPipe({
-      transform: true,
-      whitelist: true,
-      transformOptions: {
-        enableImplicitConversion: true,
-      },
-      // optionnel : pour éviter certains messages bizarres
-      forbidUnknownValues: false,
-    }),
-  );
+  // app.useGlobalPipes(
+  //   new ValidationPipe({
+  //     transform: true,
+  //     whitelist: true,
+  //     transformOptions: {
+  //       enableImplicitConversion: true,
+  //     },
+  //     // optionnel : pour éviter certains messages bizarres
+  //     forbidUnknownValues: false,
+  //   }),
+  // );
   // === Swagger Configuration ===
   const config = new DocumentBuilder()
     .setTitle('CYNA API')
