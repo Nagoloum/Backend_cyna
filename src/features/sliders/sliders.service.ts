@@ -100,17 +100,27 @@ export class SlidersService {
       if (!slider) {
         return ApiResponse.error('Slider introuvable');
       }
-      // 2. GÉRER L'UNICITÉ DE L'ORDRE
-    if (updateSliderDto.order !== undefined) {
-      const existingOrder = await this.sliderModel.findOne({
-        order: updateSliderDto.order,
-        _id: { $ne: idSlider } 
-      });
-
-      if (existingOrder) {
-        return ApiResponse.error(`L'ordre ${updateSliderDto.order} est déjà utilisé par un autre slider`);
+      // 2. GÉRER L'UNICITÉ DU TITRE
+      if (updateSliderDto.title !== undefined && updateSliderDto.title !== slider.title) {
+        const dupTitle = await this.sliderModel.findOne({
+          title: updateSliderDto.title,
+          _id: { $ne: idSlider },
+        });
+        if (dupTitle) {
+          return ApiResponse.error('Un slider avec ce titre existe déjà');
+        }
       }
-    }
+
+      // 3. GÉRER L'UNICITÉ DE L'ORDRE
+      if (updateSliderDto.order !== undefined) {
+        const existingOrder = await this.sliderModel.findOne({
+          order: updateSliderDto.order,
+          _id: { $ne: idSlider },
+        });
+        if (existingOrder) {
+          return ApiResponse.error(`L'ordre ${updateSliderDto.order} est déjà utilisé par un autre slider`);
+        }
+      }
       // 2. Gestion de la nouvelle image (si présente)
       if (file) {
         const uploadDir = './storage/sliders';

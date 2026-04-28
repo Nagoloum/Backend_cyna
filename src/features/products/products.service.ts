@@ -26,7 +26,12 @@ export class ProductsService {
     const savedFiles: string[] = []; // Pour garder trace en cas d'erreur (rollback)
 
     try {
-      // 1. Vérification d'existence
+      // 1. Au moins une image est obligatoire à la création
+      if (!files || files.length === 0) {
+        return ApiResponse.error('Au moins une image est obligatoire');
+      }
+
+      // 2. Vérification d'existence
       const existingProduct = await this.productModel.exists({
         name: createProductDto.name,
       });
@@ -94,12 +99,12 @@ export class ProductsService {
   async productByOrder() {
     try {
       const product = await this.productModel
-        .find(
-          {
-            priority: true,
-          },
-          'name slug images order',
-        )
+        .find({ is_selected: true })
+        .populate({
+          path: 'service',
+          select: 'name slug category',
+          populate: { path: 'category', select: 'name slug' },
+        })
         .sort({ order: 1 })
         .exec();
       if (!product) {
@@ -142,6 +147,11 @@ export class ProductsService {
       const [data, total] = await Promise.all([
         this.productModel
           .find(whereQuery)
+          .populate({
+            path: 'service',
+            select: 'name slug category',
+            populate: { path: 'category', select: 'name slug' },
+          })
           .sort(sortQuery)
           .skip(skip)
           .limit(limit)
@@ -180,16 +190,20 @@ export class ProductsService {
     try {
       const product = await this.productModel
         .findOne({ slug: slug })
-        .populate('service', '_id')
+        .populate({
+          path: 'service',
+          select: 'name slug category',
+          populate: { path: 'category', select: 'name slug' },
+        })
         .exec();
 
       // produit similaire qui ont le même serviceId
       const similarProducts = await this.productModel
         .find({
           slug: { $ne: slug }, // Exclure le produit actuel
-          service: product?.service._id, // Même serviceId
+          service: product?.service?._id, // Même serviceId
         })
-        .select('name slug images') // Champs à retourner
+        .select('name slug images priceMonth priceYear stock')
         .exec();
 
       // Ajouter les produits similaires à la réponse
@@ -219,23 +233,54 @@ export class ProductsService {
         return ApiResponse.error('Produit non trouvé');
       }
 
-      // 2. Préparer les nouvelles images
-      let finalImages: ImageDto[] = [];
+      // 1.b Unicité du nom (et donc indirectement du slug généré)
+      if (
+        updateProductDto.name &&
+        updateProductDto.name !== existingProduct.name
+      ) {
+        const dup = await this.productModel.findOne({
+          name: updateProductDto.name,
+          _id: { $ne: existingProduct._id },
+        });
+        if (dup) {
+          return ApiResponse.error('Un produit avec ce nom existe déjà');
+        }
+      }
 
-      // Si l'utilisateur a envoyé de NOUVELLES images
+      // 2. Préparer les nouvelles images. Par défaut on garde toutes les images
+      // existantes — une mise à jour SANS upload ne doit pas vider le tableau.
+      let finalImages: ImageDto[] = (existingProduct.images ?? []).map((img) => ({
+        url: img.url,
+      }));
+      let imagesChanged = false;
+
+      // Si l'utilisateur a envoyé de NOUVELLES images, on construit le tableau
+      // final = (images existantes que l'utilisateur a gardées) + (nouveaux fichiers).
       if (files && files.length > 0) {
         const uploadDir = './storage/products';
         if (!fs.existsSync(uploadDir))
           fs.mkdirSync(uploadDir, { recursive: true });
 
-        // a. Supprimer les ANCIENNES images du disque
+        // a. Lire la liste des chemins à conserver envoyée par le front via
+        // multipart (`existingImages` peut être string OU string[]).
+        const rawKeep = (updateProductDto as any).existingImages;
+        const keepPaths: string[] = Array.isArray(rawKeep)
+          ? rawKeep.map(String)
+          : rawKeep
+            ? [String(rawKeep)]
+            : [];
+
+        // b. Supprimer du disque les images de l'ancien produit qui ne sont
+        // PAS dans la liste à conserver.
+        const keepSet = new Set(keepPaths);
         if (existingProduct.images && existingProduct.images.length > 0) {
           for (const oldImg of existingProduct.images) {
+            if (keepSet.has(oldImg.url)) continue; // gardée par l'utilisateur
             const oldPath = path.join(process.cwd(), oldImg.url);
             if (fs.existsSync(oldPath)) {
               try {
                 fs.unlinkSync(oldPath);
-              } catch (e) {
+              } catch (_e) {
                 console.error(
                   `Impossible de supprimer l'ancienne image: ${oldPath}`,
                 );
@@ -244,7 +289,7 @@ export class ProductsService {
           }
         }
 
-        // b. Enregistrer les NOUVELLES images
+        // c. Enregistrer les NOUVELLES images
         const newImageObjects: ImageDto[] = [];
         for (const file of files) {
           const uniqueSuffix =
@@ -261,8 +306,12 @@ export class ProductsService {
           });
         }
 
-        // On remplace totalement le tableau
-        finalImages = newImageObjects;
+        // d. Tableau final = images conservées (dans l'ordre original) + nouvelles
+        const keptObjects: ImageDto[] = (existingProduct.images ?? [])
+          .filter((img) => keepSet.has(img.url))
+          .map((img) => ({ url: img.url }));
+        finalImages = [...keptObjects, ...newImageObjects];
+        imagesChanged = true;
       }
 
       // 3. Résolution du ServiceId et du Slug (comme avant)
@@ -276,15 +325,22 @@ export class ProductsService {
         ? this.sharedService.generateSlug(updateProductDto.name)
         : existingProduct.slug;
 
-      // 4. Mise à jour finale
+      // 4. Mise à jour finale. On ne touche au champ `images` que si l'utilisateur
+      // a explicitement envoyé de nouveaux fichiers — sinon on conserve les images
+      // déjà en base. On retire systématiquement la clé `images` qui peut être
+      // présente à `undefined` dans le DTO (et qui écraserait le tableau Mongo).
+      const updatePayload: any = {
+        ...updateProductDto,
+        slug: newSlug,
+        service: serviceId,
+      };
+      delete updatePayload.images;
+      delete updatePayload.existingImages;
+      if (imagesChanged) updatePayload.images = finalImages;
+
       const updatedProduct = await this.productModel.findOneAndUpdate(
         { slug },
-        {
-          ...updateProductDto,
-          slug: newSlug,
-          service: serviceId,
-          images: finalImages, // Nouveau tableau d'images
-        },
+        updatePayload,
         { new: true },
       );
 

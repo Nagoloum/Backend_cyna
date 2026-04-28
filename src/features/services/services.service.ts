@@ -75,6 +75,7 @@ export class ServicesService {
       const [data, total] = await Promise.all([
         this.serviceModel
           .find(whereQuery)
+          .populate('category', 'name slug')
           .sort(sortQuery)
           .skip(skip)
           .limit(limit)
@@ -110,14 +111,33 @@ export class ServicesService {
 
   async update(slug: string, updateServiceDto: UpdateServiceDto) {
     try {
+      const existing = await this.serviceModel.findOne({ slug });
+      if (!existing) {
+        return ApiResponse.error('Service non trouvé');
+      }
+
+      // Unicité du nom + régénération du slug
+      const updatePayload: any = { ...updateServiceDto };
+      if (updateServiceDto.name && updateServiceDto.name !== existing.name) {
+        const dup = await this.serviceModel.findOne({
+          name: updateServiceDto.name,
+          _id: { $ne: existing._id },
+        });
+        if (dup) {
+          return ApiResponse.error('Un service avec ce nom existe déjà');
+        }
+        updatePayload.slug = this.sharedService.generateSlug(updateServiceDto.name);
+      }
+
       const categoryId = await resolveIdOrThrow(
         updateServiceDto.categoryId,
         (id) => this.categoryService.findOneById(id),
         'Catégorie',
       );
+
       const service = await this.serviceModel.findOneAndUpdate(
         { slug },
-        { ...updateServiceDto, category: categoryId },
+        { ...updatePayload, category: categoryId },
         { new: true },
       );
       if (!service) {

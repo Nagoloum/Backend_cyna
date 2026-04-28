@@ -174,11 +174,11 @@ export class CategoriesService {
       const products = await this.productModel
         .find(
           { service: { $in: serviceIds } },
-          'name slug priceMonth images stock priority order', // On ajoute stock et priority pour le front
+          'name slug priceMonth images stock is_selected order', // is_selected = top product
         )
         .sort({
-          priority: -1, // Prioritaires en premier (true > false)
-          stock: -1, // Stock disponible avant rupture (si stock > 0)
+          is_selected: -1, // Top products en premier
+          stock: -1, // Stock disponible avant rupture
           order: 1, // Ordre manuel défini en back-office
         });
 
@@ -228,7 +228,32 @@ export class CategoriesService {
         return ApiResponse.error('Catégorie non trouvée');
       }
 
-      // 2. Si une nouvelle image est envoyée
+      // 2. Unicité du nom + régénération du slug
+      if (updateCategoryDto.name && updateCategoryDto.name !== category.name) {
+        const dup = await this.categoryModel.findOne({
+          name: updateCategoryDto.name,
+          _id: { $ne: category._id },
+        });
+        if (dup) {
+          return ApiResponse.error('Une catégorie avec ce nom existe déjà');
+        }
+        (updateCategoryDto as any).slug = this.sharedService.generateSlug(
+          updateCategoryDto.name,
+        );
+      }
+
+      // 3. Unicité de l'ordre
+      if (updateCategoryDto.order !== undefined) {
+        const dupOrder = await this.categoryModel.findOne({
+          order: updateCategoryDto.order,
+          _id: { $ne: category._id },
+        });
+        if (dupOrder) {
+          return ApiResponse.error('Une catégorie a déjà cet ordre');
+        }
+      }
+
+      // 4. Si une nouvelle image est envoyée
       if (file) {
         const uploadDir = './storage/categories';
         if (!fs.existsSync(uploadDir)) {
