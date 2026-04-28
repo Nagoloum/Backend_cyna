@@ -249,9 +249,11 @@ export class ProductsService {
 
       // 2. Préparer les nouvelles images. Par défaut on garde toutes les images
       // existantes — une mise à jour SANS upload ne doit pas vider le tableau.
-      let finalImages: ImageDto[] = (existingProduct.images ?? []).map((img) => ({
-        url: img.url,
-      }));
+      let finalImages: ImageDto[] = (existingProduct.images ?? []).map(
+        (img) => ({
+          url: img.url,
+        }),
+      );
       let imagesChanged = false;
 
       // Si l'utilisateur a envoyé de NOUVELLES images, on construit le tableau
