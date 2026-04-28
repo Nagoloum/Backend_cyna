@@ -5,26 +5,28 @@ import { StatutAbonnement } from '../common/statut-abonnement.enum';
 @Schema({ _id: true }) // facultatif, _id est true par défaut
 export class Abonnement extends Document {
   @Prop({ required: true })
-  dateFin: string;
+  dateFin!: string;
   @Prop({ required: true })
-  dateDebut: string;
+  dateDebut!: string;
   @Prop({ required: true })
-  quantity: number;
+  quantity!: number;
+  @Prop({ required: true })
+  keyLicence!: string;
   @Prop({
     required: true,
     enum: PeriodeAbonnement,
     default: PeriodeAbonnement.MENSUEL,
   })
-  periode: PeriodeAbonnement;
+  periode!: PeriodeAbonnement;
   @Prop({ required: true })
-  price: number;
+  price!: number;
   @Prop({
     required: true,
     enum: StatutAbonnement,
     default: StatutAbonnement.ACTIVE,
   })
-  statut: StatutAbonnement;
+  statut!: StatutAbonnement;
   @Prop({ type: Types.ObjectId, ref: 'Product' })
-  product: Types.ObjectId;
+  product!: Types.ObjectId;
 }
 export const AbonnementSchema = SchemaFactory.createForClass(Abonnement);
