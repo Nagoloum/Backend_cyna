@@ -13,10 +13,10 @@ import * as path from 'path';
 export class SlidersService {
   constructor(
     @InjectModel(Slider.name) private readonly sliderModel: Model<Slider>,
-  ) { }
+  ) {}
   async create(
     createSliderDto: CreateSliderDto,
-    files: { newImage?: Express.Multer.File[] }
+    files: { newImage?: Express.Multer.File[] },
   ) {
     const file = files.newImage?.[0];
     let fullPath = '';
@@ -24,10 +24,14 @@ export class SlidersService {
 
     try {
       // 1. Vérifications initiales
-      const existingSlider = await this.sliderModel.findOne({ title: createSliderDto.title });
+      const existingSlider = await this.sliderModel.findOne({
+        title: createSliderDto.title,
+      });
       if (existingSlider) return ApiResponse.error('Le slider existe déjà');
 
-      const existingOrder = await this.sliderModel.findOne({ order: createSliderDto.order });
+      const existingOrder = await this.sliderModel.findOne({
+        order: createSliderDto.order,
+      });
       if (existingOrder) return ApiResponse.error('Cet ordre est déjà utilisé');
 
       // 2. Gestion du fichier image
@@ -43,7 +47,7 @@ export class SlidersService {
         relativePath = `storage/sliders/${fileName}`;
 
         fs.writeFileSync(fullPath, file.buffer);
-      };
+      }
 
       // 3. Création de l'instance et sauvegarde en BDD
       const newSlider = new this.sliderModel({
@@ -53,7 +57,6 @@ export class SlidersService {
       const savedSlider = await newSlider.save();
 
       return ApiResponse.success('Slider créé avec succès', savedSlider);
-
     } catch (error) {
       if (fullPath && fs.existsSync(fullPath)) {
         fs.unlinkSync(fullPath);
@@ -65,7 +68,7 @@ export class SlidersService {
   async findAll() {
     try {
       const sliders = await this.sliderModel.find().sort({ order: -1 }).exec();
-      return ApiResponse.success("Liste des sliders récupérée", sliders);
+      return ApiResponse.success('Liste des sliders récupérée', sliders);
     } catch (error) {
       return ApiResponse.error('Erreur lors de la récupération des sliders');
     }
@@ -75,14 +78,16 @@ export class SlidersService {
     try {
       const finalLimit = Math.max(1, Math.floor(limit));
       const topSliders = await this.sliderModel
-        .find()
-        .sort({ order: -1 }) // Trie du plus grand au plus petit
-        .limit(finalLimit)   // Utilise la limite dynamique
+        .find({ order: { $gt: 0 } })
+        .sort({ order: 1 })
+        .limit(finalLimit) // Utilise la limite dynamique
         .exec();
-      return ApiResponse.success(`Top ${finalLimit} sliders récupérés`, topSliders);
-    }
-    catch (error) {
-      return ApiResponse.error("Erreur lors de la récupération des sliders");
+      return ApiResponse.success(
+        `Top ${finalLimit} sliders récupérés`,
+        topSliders,
+      );
+    } catch (error) {
+      return ApiResponse.error('Erreur lors de la récupération des sliders');
     }
   }
   async update(
@@ -96,12 +101,15 @@ export class SlidersService {
 
     try {
       // 1. Trouver le slider actuel
-      const slider = await this.sliderModel.findById(idSlider);;
+      const slider = await this.sliderModel.findById(idSlider);
       if (!slider) {
         return ApiResponse.error('Slider introuvable');
       }
       // 2. GÉRER L'UNICITÉ DU TITRE
-      if (updateSliderDto.title !== undefined && updateSliderDto.title !== slider.title) {
+      if (
+        updateSliderDto.title !== undefined &&
+        updateSliderDto.title !== slider.title
+      ) {
         const dupTitle = await this.sliderModel.findOne({
           title: updateSliderDto.title,
           _id: { $ne: idSlider },
@@ -118,7 +126,9 @@ export class SlidersService {
           _id: { $ne: idSlider },
         });
         if (existingOrder) {
-          return ApiResponse.error(`L'ordre ${updateSliderDto.order} est déjà utilisé par un autre slider`);
+          return ApiResponse.error(
+            `L'ordre ${updateSliderDto.order} est déjà utilisé par un autre slider`,
+          );
         }
       }
       // 2. Gestion de la nouvelle image (si présente)
@@ -159,8 +169,10 @@ export class SlidersService {
         }
       }
 
-      return ApiResponse.success('Slider mis à jour avec succès', updatedSlider);
-
+      return ApiResponse.success(
+        'Slider mis à jour avec succès',
+        updatedSlider,
+      );
     } catch (error) {
       if (newRelativePath) {
         const tempPath = path.join(process.cwd(), newRelativePath);
@@ -185,13 +197,14 @@ export class SlidersService {
           try {
             fs.unlinkSync(fullPath);
           } catch (fileError) {
-          return ApiResponse.error('Erreur lors de la suppression du slider.');
+            return ApiResponse.error(
+              'Erreur lors de la suppression du slider.',
+            );
           }
         }
       }
       return ApiResponse.success('Slider supprimé avec succès.');
-    }
-    catch (error) {
+    } catch (error) {
       return ApiResponse.error('Erreur lors de la suppression du slider.');
     }
   }

@@ -39,6 +39,17 @@ export class ProductsService {
         return ApiResponse.error('Un produit avec ce nom existe déjà');
       }
 
+      if (createProductDto?.order > 0) {
+        const existingOrder = await this.productModel.exists({
+          order: createProductDto.order,
+        });
+        if (existingOrder) {
+          return ApiResponse.error(
+            "Un produit avec ce numéro d'ordre existe déjà",
+          );
+        }
+      }
+
       // 2. Résolution du Service
       const serviceId = await resolveIdOrThrow(
         createProductDto.serviceId,
@@ -99,7 +110,7 @@ export class ProductsService {
   async productByOrder() {
     try {
       const product = await this.productModel
-        .find({ is_selected: true })
+        .find({ priority: true })
         .populate({
           path: 'service',
           select: 'name slug category',
@@ -244,6 +255,20 @@ export class ProductsService {
         });
         if (dup) {
           return ApiResponse.error('Un produit avec ce nom existe déjà');
+        }
+      }
+      if (
+        updateProductDto?.order &&
+        updateProductDto.order !== existingProduct.order
+      ) {
+        const dupOrder = await this.productModel.findOne({
+          order: updateProductDto.order,
+          _id: { $ne: existingProduct._id },
+        });
+        if (dupOrder) {
+          return ApiResponse.error(
+            "Un produit avec ce numéro d'ordre existe déjà",
+          );
         }
       }
 
