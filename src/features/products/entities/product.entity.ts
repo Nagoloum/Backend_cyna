@@ -32,12 +32,9 @@ export class Product extends Document {
   stock!: number;
 
   @Prop({ type: Boolean, default: false })
-  is_selected!: boolean;
-
-  @Prop({ type: Boolean, default: false })
   priority!: boolean;
 
-  @Prop()
+  @Prop({ default: 0 })
   order!: number;
 
   @Prop({ type: Types.ObjectId, ref: 'Service', required: true, index: true })

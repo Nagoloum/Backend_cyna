@@ -1,21 +1,16 @@
 import { ApiProperty, ApiPropertyOptional, ApiSchema } from '@nestjs/swagger';
-import {
-  IsString,
-  IsNotEmpty,
-  IsOptional,
-  IsMongoId,
-} from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsMongoId } from 'class-validator';
 
 @ApiSchema({ description: 'Data Transfer Object pour créer un produit' })
 export class CreateProductDto {
   @IsMongoId({ message: 'L’ID du service doit être un ID MongoDB valide' })
   @ApiProperty()
-  serviceId: string;
+  serviceId!: string;
 
   @IsString()
   @IsNotEmpty({ message: 'Le nom du produit est obligatoire' })
   @ApiProperty()
-  name: string;
+  name!: string;
 
   @ApiProperty({
     type: 'array',
@@ -28,11 +23,11 @@ export class CreateProductDto {
 
   @IsNotEmpty()
   @ApiProperty()
-  priceMonth: number;
+  priceMonth!: number;
 
   @IsNotEmpty()
   @ApiProperty()
-  priceYear: number;
+  priceYear!: number;
 
   @IsOptional()
   @IsString()
@@ -46,13 +41,13 @@ export class CreateProductDto {
 
   @IsOptional() // Permet de passer si le champ est vide dans Swagger
   @ApiProperty()
-  stock: number;
+  stock!: number;
 
   @IsOptional() // Très important pour le multipart
   @ApiPropertyOptional()
-  is_selected: boolean;
+  order!: number;
 
   @IsOptional()
   @ApiPropertyOptional()
-  priority: boolean;
+  priority!: boolean;
 }
