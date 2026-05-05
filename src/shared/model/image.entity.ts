@@ -7,10 +7,10 @@ export class Image {
     type: mongoose.Schema.Types.ObjectId,
     default: () => new mongoose.Types.ObjectId(),
   })
-  _id: mongoose.Types.ObjectId;
+  _id!: mongoose.Types.ObjectId;
 
   @Prop({ required: true })
-  url: string;
+  url!: string;
 }
 
 export const ImageSchema = SchemaFactory.createForClass(Image);

@@ -43,6 +43,10 @@ export class CreateProductDto {
   @ApiProperty()
   stock!: number;
 
+  @IsOptional() // Permet de passer si le champ est vide dans Swagger
+  @ApiProperty()
+  description!: string;
+
   @IsOptional() // Très important pour le multipart
   @ApiPropertyOptional()
   order!: number;

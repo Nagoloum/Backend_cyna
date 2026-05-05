@@ -12,6 +12,8 @@ export class Product extends Document {
 
   @Prop({ required: true, trim: true })
   slug!: string;
+  @Prop({ required: true, trim: true })
+  description!: string;
 
   @Prop({ type: [ImageSchema], default: [] })
   images!: Image[];
