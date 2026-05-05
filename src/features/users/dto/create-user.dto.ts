@@ -4,14 +4,14 @@ import { IsNotEmpty } from 'class-validator';
 export class CreateUserDto {
   @ApiProperty()
   @IsNotEmpty({ message: 'Email est obligatoire' })
-  email: string;
+  email!: string;
   @ApiProperty()
   @IsNotEmpty({ message: 'Mot de passe est obligatoire' })
-  password: string;
+  password!: string;
   @ApiProperty()
   @IsNotEmpty({ message: 'Prénom est obligatoire' })
-  firstName: string;
+  firstName!: string;
   @ApiProperty()
   @IsNotEmpty({ message: 'Nom est obligatoire' })
-  lastName: string;
+  lastName!: string;
 }

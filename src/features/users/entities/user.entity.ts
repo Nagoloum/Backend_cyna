@@ -5,30 +5,30 @@ import { UserRoles } from 'src/shared/common/user-roles.enum';
 @Schema({ timestamps: true })
 export class User extends Document {
   @Prop()
-  firstName: string;
+  firstName!: string;
   @Prop()
-  lastName: string;
+  lastName!: string;
 
   @Prop({ required: true, unique: true })
-  email: string;
+  email!: string;
 
   @Prop({ required: true })
-  password: string;
+  password!: string;
 
   @Prop({ required: true, default: UserRoles.CUSTOMER })
-  role: UserRoles;
+  role!: UserRoles;
   @Prop(
     raw({
       code: { type: String, default: '' },
       dateExp: { type: String, default: '' },
     }),
   )
-  verification: Record<string, any>;
+  verification!: Record<string, any>;
   @Prop()
-  phone: string;
+  phone!: string;
 
   @Prop({ default: false })
-  confirmed: boolean;
+  confirmed!: boolean;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
