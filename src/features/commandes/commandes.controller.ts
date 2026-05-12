@@ -43,8 +43,6 @@ export class CommandesController {
     createCommandeDto: any,
     @CurrentUser() currentUser: any,
   ) {
-    console.log(createCommandeDto);
-
     return this.commandesService.createWithStripeCheckout(
       createCommandeDto,
       currentUser,

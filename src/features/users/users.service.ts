@@ -1,16 +1,20 @@
 import { Injectable } from '@nestjs/common';
 
 import { UpdateUserDto } from './dto/update-user.dto';
-import { isValidObjectId, Model } from 'mongoose';
+import { isValidObjectId, Model, Types } from 'mongoose';
 import { User } from './entities/user.entity';
 import { InjectModel } from '@nestjs/mongoose';
 import { ApiResponse } from 'src/shared/responses/api-response';
 import * as bcrypt from 'bcrypt';
+import { Type } from 'class-transformer';
+import { ChangePasswordProfilDto } from './dto/create-user.dto';
+import { SharedService } from 'src/shared/services/shared.service';
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectModel(User.name) private readonly userModel: Model<User>,
+    private readonly sharedService: SharedService,
   ) {}
   async findAll() {
     try {
@@ -63,12 +67,6 @@ export class UsersService {
           'Vous ne pouvais pas modifier cet utilisateur',
         );
       }
-
-      // Mise à jour du mot de passe si fourni
-      if (updateUserDto.password) {
-        updateUserDto.password = await bcrypt.hash(updateUserDto.password, 10);
-      }
-
       const updatedUser = await this.userModel
         .findByIdAndUpdate(id, updateUserDto, { new: true })
         .select('-password')
@@ -78,6 +76,59 @@ export class UsersService {
         'Utilisateur mis à jour avec succès',
         updatedUser,
       );
+    } catch (error) {
+      return ApiResponse.error('Erreur lors de la mise à jour');
+    }
+  }
+
+  async changePassword(
+    changePasswordDto: ChangePasswordProfilDto,
+    currentUser: any,
+  ) {
+    try {
+      const user = await this.userModel
+        .findById({ _id: new Types.ObjectId(currentUser.data._id) })
+        .exec();
+      if (!user) {
+        return ApiResponse.error('Utilisateur introuvable');
+      }
+
+      if (
+        (await bcrypt.compare(
+          changePasswordDto.currentPassword,
+          user.password,
+        )) === false
+      ) {
+        return ApiResponse.error('Mot de passe actuel est incorrect');
+      }
+      if (
+        changePasswordDto.newPassword &&
+        !this.sharedService.isStrongPassword(changePasswordDto.newPassword)
+      ) {
+        return ApiResponse.error(
+          'Le mot de passe doit contenir au moins 8 caractères, une majuscule, une minuscule, un chiffre et un caractère spécial.',
+        );
+      }
+      if (changePasswordDto.newPassword !== changePasswordDto.confirmPassword) {
+        return ApiResponse.error(
+          'Le nouveau mot de passe et la confirmation ne correspondent pas',
+        );
+      }
+
+      // Mise à jour du mot de passe si fourni
+      if (changePasswordDto.newPassword) {
+        changePasswordDto.newPassword = await bcrypt.hash(
+          changePasswordDto.newPassword,
+          10,
+        );
+      }
+
+      const updatedUser = await this.userModel
+        .findByIdAndUpdate(user.id, changePasswordDto, { new: true })
+        .select('-password')
+        .exec();
+
+      return ApiResponse.success('Mot de passe mis à jour avec succès');
     } catch (error) {
       return ApiResponse.error('Erreur lors de la mise à jour');
     }

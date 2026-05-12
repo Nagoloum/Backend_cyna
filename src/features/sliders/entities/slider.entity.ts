@@ -13,7 +13,7 @@ export class Slider extends Document {
   linkUrl!: string;
 
   @Prop()
-  NameUrl!: string;
+  nameUrl!: string;
 
   @Prop({ default: 0 })
   order!: number;
