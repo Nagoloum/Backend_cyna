@@ -27,7 +27,6 @@ export class AuthController {
   @Post('login')
   @UseInterceptors(NoFilesInterceptor())
   login(@Body(FormDataTransformPipe, ValidationPipe) loginDto: LoginDto) {
-    console.log(loginDto);
     return this.authService.login(loginDto);
   }
   @Post('check-code')
@@ -47,7 +46,6 @@ export class AuthController {
     },
   })
   verify2FA(@Body('code') code: string) {
-    console.log('Vérification du code reçu :', code);
     return this.authService.verifyCode2FA(code);
   }
   @Post('register')

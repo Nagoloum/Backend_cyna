@@ -62,7 +62,7 @@ export class SlidersController {
   async findTop(@Query('limit') limit: string) {
     // On transforme le texte reçu en nombre.
     // Si 'limit' n'est pas envoyé, on passe undefined et le service prendra 3 par défaut.
-    const topeSliders = limit ? parseInt(limit, 10) : undefined;
+    const topeSliders = limit ? parseInt(limit, 10) : 3;
     return this.slidersService.findTopSliders(topeSliders);
   }
 

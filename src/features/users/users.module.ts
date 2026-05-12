@@ -4,13 +4,14 @@ import { UsersController } from './users.controller';
 import { User, UserSchema } from './entities/user.entity';
 import { MongooseModule } from '@nestjs/mongoose';
 import { JwtService } from '@nestjs/jwt';
+import { SharedService } from 'src/shared/services/shared.service';
 
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
   ],
   controllers: [UsersController],
-  providers: [UsersService, JwtService],
+  providers: [UsersService, JwtService, SharedService],
   exports: [UsersService, MongooseModule],
 })
 export class UsersModule {}

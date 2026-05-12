@@ -74,9 +74,10 @@ export class SlidersService {
     }
   }
   // Retoune les sliders avec les orders les plus grand.
-  async findTopSliders(limit: number = 3) {
+  async findTopSliders(limit: number) {
     try {
       const finalLimit = Math.max(1, Math.floor(limit));
+
       const topSliders = await this.sliderModel
         .find({ order: { $gt: 0 } })
         .sort({ order: 1 })
