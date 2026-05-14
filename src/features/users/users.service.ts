@@ -123,9 +123,13 @@ export class UsersService {
         );
       }
 
-      const updatedUser = await this.userModel
-        .findByIdAndUpdate(user.id, changePasswordDto, { new: true })
-        .select('-password')
+      await this.userModel
+        .findByIdAndUpdate(
+          user.id,
+          { password: changePasswordDto.newPassword },
+          { new: true },
+        )
+
         .exec();
 
       return ApiResponse.success('Mot de passe mis à jour avec succès');

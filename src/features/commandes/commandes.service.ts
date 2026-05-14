@@ -18,6 +18,7 @@ import { ProductsService } from '../products/products.service';
 import { StripeService } from 'src/shared/services/stripe.service';
 import e from 'express';
 import { AdresseFacturation } from '../adresse_facturations/entities/adresse_facturation.entity';
+import { parse } from 'path';
 
 type BuiltAbonnement = {
   dateDebut: string;
@@ -271,7 +272,9 @@ export class CommandesService {
         status,
       } = queryDto;
 
-      const skip = (page - 1) * limit;
+      const pageNumber = parseInt(page.toString(), 10) || 1;
+      const limitNumber = parseInt(limit.toString(), 10) || 10;
+      const skip = (pageNumber - 1) * limitNumber;
       const selectedSortOrder: 1 | -1 = sortOrder === 'asc' ? 1 : -1;
 
       // --- PIPELINE D'AGRÉGATION ---
@@ -353,7 +356,7 @@ export class CommandesService {
           {
             $facet: {
               metadata: [{ $count: 'total' }],
-              data: [{ $skip: skip }, { $limit: limit }],
+              data: [{ $skip: skip }, { $limit: limitNumber }],
             },
           },
         ])
@@ -376,9 +379,9 @@ export class CommandesService {
       return ApiResponse.success('Liste des commandes récupérée', {
         results: year ? data : groupedData,
         total,
-        page,
-        limit,
-        totalPage: Math.ceil(total / limit),
+        page: pageNumber,
+        limit: limitNumber,
+        totalPage: Math.ceil(total / limitNumber),
       });
     } catch (error) {
       console.error(error);
@@ -505,21 +508,43 @@ export class CommandesService {
         return ApiResponse.error('Utilisateur non authentifié');
       }
 
-      const abonnements = await this.commandeModel
+      // 1. Utilisez .lean() pour obtenir des objets JS simples
+      const commandes = await this.commandeModel
         .find({ user: new Types.ObjectId(userId) }, 'abonnements')
-        .populate('abonnements.product', 'name slug images')
+        .populate({
+          path: 'abonnements.product',
+          select: 'name slug images',
+        })
+        .lean() // Très important ici
         .exec();
 
-      const flattenedAbonnements = abonnements.flatMap((commande) =>
-        commande.abonnements.map((abonnement) => ({
-          ...abonnement.toObject(),
-          product: abonnement.product,
-        })),
+      // 2. Le mapping devient beaucoup plus simple
+      const flattenedAbonnements = commandes.flatMap((commande) =>
+        commande.abonnements.map((abonnement) => {
+          // Création d'un formateur de date
+          const formatter = new Intl.DateTimeFormat('fr-FR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+          });
+
+          return {
+            ...abonnement,
+            // On formate les dates si elles existent
+            dateDebut: abonnement.dateDebut
+              ? formatter.format(new Date(abonnement.dateDebut))
+              : null,
+            dateFin: abonnement.dateFin
+              ? formatter.format(new Date(abonnement.dateFin))
+              : null,
+          };
+        }),
       );
 
-      return ApiResponse.success("Abonnements de l'utilisateur récupérés", {
-        abonnements: flattenedAbonnements,
-      });
+      return ApiResponse.success(
+        "Abonnements de l'utilisateur récupérés",
+        flattenedAbonnements,
+      );
     } catch (error) {
       console.error(error);
       return ApiResponse.error(
