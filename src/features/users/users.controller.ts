@@ -23,6 +23,7 @@ import { ChangePasswordProfilDto } from './dto/create-user.dto';
 @ApiTags('Users')
 @ApiBearerAuth()
 @Controller('users')
+@ApiConsumes('multipart/form-data')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
   //Afficher Tous les utilisateurs
@@ -44,22 +45,17 @@ export class UsersController {
     changePasswordDto: ChangePasswordProfilDto,
     @CurrentUser() currentUser: any,
   ) {
-    console.log(changePasswordDto);
-
     return this.usersService.changePassword(changePasswordDto, currentUser);
   }
 
   @UseGuards(AuthGuard)
   @Patch('profil/:id')
-  @ApiConsumes('multipart/form-data')
   @UseInterceptors(NoFilesInterceptor())
   update(
     @Param('id') id: string,
     @Body(FormDataTransformPipe, ValidationPipe) updateUserDto: UpdateUserDto,
     @CurrentUser() currentUser: any,
   ) {
-    console.log(updateUserDto);
-
     return this.usersService.update(id, updateUserDto, currentUser);
   }
 
