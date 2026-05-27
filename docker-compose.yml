@@ -1,4 +1,24 @@
 services:
+  api:
+    build:
+      context: .
+      target: production
+    image: cyna-backend:latest
+    env_file:
+      - .env
+    environment:
+      PORT: 3000
+      DATABASE_URL: mongodb://root:${DATABASE_PASSWORD}@mongo:27017/cyna?authSource=admin
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}
+    ports:
+      - '${API_PORT:-3000}:3000'
+    volumes:
+      - storage_data:/app/storage
+    depends_on:
+      - mongo
+    networks:
+      - app-network
+
   mongo:
     image: mongo:latest
     environment:
@@ -17,4 +37,6 @@ networks:
 
 volumes:
   mongodb_data:
+    driver: local
+  storage_data:
     driver: local
