@@ -39,7 +39,7 @@ export class AdresseFacturationsService {
       );
     } catch (error) {
       return ApiResponse.error(
-        "Erreur lors de la création de l'adresse de facturation",
+        "Erreur lors de la création de l'adresse de facturation ",
       );
     }
   }
@@ -131,9 +131,14 @@ export class AdresseFacturationsService {
 
   async findByUser(currentUser: any) {
     try {
-      const adresseFacturations = await this.adresseModel.find({
-        user: currentUser?.data?._id,
-      });
+      const adresseFacturations = await this.adresseModel
+        .find(
+          {
+            user: currentUser?.data?._id,
+          },
+          '-user',
+        )
+        .sort({ isDefault: -1, createdAt: -1 });
       return ApiResponse.success(
         'Adresse de facturation recuperee avec success',
         adresseFacturations,
