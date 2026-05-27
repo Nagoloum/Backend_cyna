@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNotEmpty } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class CreateCarteBancaireDto {
   @ApiProperty()
@@ -7,16 +7,29 @@ export class CreateCarteBancaireDto {
   carteName!: string;
 
   @ApiProperty()
-  @IsNotEmpty({ message: 'Numéro de carte est obligatoire' })
-  carteNumber!: string;
+  @IsOptional()
+  @IsString()
+  carteNumber?: string;
 
   @ApiProperty()
-  @IsNotEmpty({ message: 'Date de carte est obligatoire' })
-  carteDate!: string;
+  @IsOptional()
+  @IsString()
+  carteDate?: string;
 
   @ApiProperty()
-  @IsNotEmpty({ message: 'CVV de carte est obligatoire' })
-  carteCVV!: string;
+  @IsOptional()
+  @IsString()
+  carteCVV?: string;
   @ApiPropertyOptional()
   isDefault!: boolean;
+
+  @ApiPropertyOptional()
+  @IsNotEmpty({ message: 'PaymentMethod Stripe est obligatoire' })
+  @IsString()
+  stripePaymentMethodId!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  stripeCustomerId?: string;
 }

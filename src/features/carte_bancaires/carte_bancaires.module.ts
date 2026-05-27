@@ -8,6 +8,7 @@ import {
 import { MongooseModule } from '@nestjs/mongoose';
 import { UsersModule } from '../users/users.module';
 import { JwtService } from '@nestjs/jwt';
+import { StripeModule } from 'src/stripe/stripe.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { JwtService } from '@nestjs/jwt';
       },
     ]),
     UsersModule,
+    StripeModule.forRootAsync(),
   ],
   controllers: [CarteBancairesController],
   providers: [CarteBancairesService, JwtService],

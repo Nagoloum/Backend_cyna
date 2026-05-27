@@ -17,6 +17,10 @@ export class CarteBancaire extends Document {
 
   @Prop({ required: true })
   carteCVV!: string;
+  @Prop()
+  stripePaymentMethodId?: string;
+  @Prop()
+  stripeCustomerId?: string;
   @Prop({ type: Types.ObjectId, ref: 'User' })
   user!: User;
 }

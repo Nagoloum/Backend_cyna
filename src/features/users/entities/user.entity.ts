@@ -27,6 +27,9 @@ export class User extends Document {
   @Prop()
   phone!: string;
 
+  @Prop()
+  stripeCustomerId?: string;
+
   @Prop({ default: false })
   confirmed!: boolean;
 }

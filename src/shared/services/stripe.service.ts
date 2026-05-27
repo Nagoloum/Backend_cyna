@@ -12,6 +12,20 @@ type CheckoutItem = {
   interval?: 'month' | 'year';
 };
 
+type SavedCardPaymentInput = {
+  amount: number;
+  currency?: string;
+  customerId: string;
+  paymentMethodId: string;
+  orderId: string;
+};
+
+type CreateCustomerInput = {
+  email?: string;
+  name?: string;
+  metadata?: Record<string, string>;
+};
+
 @Injectable()
 export class StripeService {
   private readonly stripe: Stripe.Stripe;
@@ -64,6 +78,77 @@ export class StripeService {
 
   async retrieveCheckoutSession(sessionId: string) {
     return await this.stripe.checkout.sessions.retrieve(sessionId);
+  }
+
+  async createCustomer({ email, name, metadata }: CreateCustomerInput) {
+    return await this.stripe.customers.create({
+      email,
+      name,
+      metadata,
+    });
+  }
+
+  async retrieveCustomer(customerId: string) {
+    return await this.stripe.customers.retrieve(customerId);
+  }
+
+  async retrievePaymentMethod(paymentMethodId: string) {
+    return await this.stripe.paymentMethods.retrieve(paymentMethodId);
+  }
+
+  async attachPaymentMethodToCustomer(
+    paymentMethodId: string,
+    customerId: string,
+  ) {
+    return await this.stripe.paymentMethods.attach(paymentMethodId, {
+      customer: customerId,
+    });
+  }
+
+  async updateDefaultPaymentMethod(
+    customerId: string,
+    paymentMethodId: string,
+  ) {
+    return await this.stripe.customers.update(customerId, {
+      invoice_settings: {
+        default_payment_method: paymentMethodId,
+      },
+    });
+  }
+
+  async createSetupIntent(customerId: string) {
+    return await this.stripe.setupIntents.create({
+      customer: customerId,
+      payment_method_types: ['card'],
+      usage: 'off_session',
+    });
+  }
+
+  async createPaymentIntentWithSavedCard({
+    amount,
+    currency = 'eur',
+    customerId,
+    paymentMethodId,
+    orderId,
+  }: SavedCardPaymentInput) {
+    return await this.stripe.paymentIntents.create(
+      {
+        amount,
+        currency,
+        customer: customerId,
+        payment_method: paymentMethodId,
+        payment_method_types: ['card'],
+        confirm: true,
+        metadata: { orderId },
+      },
+      {
+        idempotencyKey: `order-payment-${orderId}`,
+      },
+    );
+  }
+
+  async retrievePaymentIntent(paymentIntentId: string) {
+    return await this.stripe.paymentIntents.retrieve(paymentIntentId);
   }
 
   constructEvent(payload: Buffer | string, signature?: string | string[]) {
