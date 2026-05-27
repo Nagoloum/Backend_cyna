@@ -55,8 +55,13 @@ export class CommandesController {
   paymentSuccess(
     @Query('orderId') orderId?: string,
     @Query('session_id') sessionId?: string,
+    @Query('payment_intent') paymentIntentId?: string,
   ) {
-    return this.commandesService.confirmPaymentSuccess(orderId, sessionId);
+    return this.commandesService.confirmPaymentSuccess(
+      orderId,
+      sessionId,
+      paymentIntentId,
+    );
   }
 
   // Endpoint pour gérer l'annulation du paiement

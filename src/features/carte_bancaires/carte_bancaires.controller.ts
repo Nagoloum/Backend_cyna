@@ -23,6 +23,13 @@ import { CurrentUser } from 'src/shared/decorators/current-user.decorators';
 @Controller('carte-bancaires')
 export class CarteBancairesController {
   constructor(private readonly carteBancairesService: CarteBancairesService) {}
+
+  @UseGuards(AuthGuard)
+  @Post('setup-intent')
+  createSetupIntent(@CurrentUser() currentUser: any) {
+    return this.carteBancairesService.createSetupIntent(currentUser);
+  }
+
   @UseGuards(AuthGuard)
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(NoFilesInterceptor())

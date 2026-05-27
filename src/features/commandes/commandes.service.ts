@@ -16,9 +16,7 @@ import { UserRoles } from 'src/shared/common/user-roles.enum';
 import { resolveIdOrThrow } from 'src/shared/generic/resolveId';
 import { ProductsService } from '../products/products.service';
 import { StripeService } from 'src/shared/services/stripe.service';
-import e from 'express';
 import { AdresseFacturation } from '../adresse_facturations/entities/adresse_facturation.entity';
-import { parse } from 'path';
 
 type BuiltAbonnement = {
   dateDebut: string;
@@ -51,7 +49,7 @@ export class CommandesService {
 
       const carteBancaire = await this.carteBancaireModel.findById(
         createCommandeDto.cbId,
-        '_id user',
+        '_id user stripePaymentMethodId stripeCustomerId',
       );
 
       if (!carteBancaire) {
@@ -173,7 +171,6 @@ export class CommandesService {
       }
 
       const commande = createdOrderResponse.data as Commande;
-      const lineItems = await this.buildStripeLineItems(createCommandeDto);
       const orderId =
         this.extractId(commande._id) ?? commande?._id?.toString?.();
 
@@ -183,18 +180,87 @@ export class CommandesService {
         );
       }
 
-      const session = await this.stripeService.createCheckoutSession(
-        lineItems,
-        orderId,
-      );
+      const savedCommande = await this.commandeModel
+        .findById(orderId, '_id totalPrice cb')
+        .populate('cb', 'stripePaymentMethodId stripeCustomerId')
+        .exec();
 
-      return ApiResponse.success('Session Stripe creee avec succes', {
-        url: session.url,
-        sessionId: session.id,
+      if (!savedCommande) {
+        return ApiResponse.error('Commande introuvable');
+      }
+
+      const carteBancaire = savedCommande.cb as unknown as CarteBancaire;
+      const stripeAmount = this.toStripeAmount(savedCommande.totalPrice);
+
+      if (
+        !carteBancaire?.stripePaymentMethodId ||
+        !carteBancaire?.stripeCustomerId
+      ) {
+        return ApiResponse.error(
+          "Cette carte n'est pas reliée a Stripe. Elle doit etre sauvegardee via un PaymentMethod Stripe avant de pouvoir etre utilisee pour payer.",
+        );
+      }
+
+      if (stripeAmount <= 0) {
+        return ApiResponse.error('Le montant de la commande est invalide');
+      }
+
+      const paymentIntent =
+        await this.stripeService.createPaymentIntentWithSavedCard({
+          amount: stripeAmount,
+          customerId: carteBancaire.stripeCustomerId,
+          paymentMethodId: carteBancaire.stripePaymentMethodId,
+          orderId,
+        });
+
+      if (paymentIntent.status === 'succeeded') {
+        const updatedCommande = await this.markAsPaid(orderId);
+
+        if (!updatedCommande.success) {
+          return updatedCommande;
+        }
+
+        return ApiResponse.success('Paiement Stripe effectue avec succes', {
+          orderId,
+          paymentIntentId: paymentIntent.id,
+          paymentStatus: paymentIntent.status,
+          status: 'PAID',
+          commande: updatedCommande.data,
+        });
+      }
+
+      if (
+        paymentIntent.status === 'requires_action' ||
+        paymentIntent.status === 'requires_confirmation'
+      ) {
+        return ApiResponse.success('Authentification Stripe requise', {
+          orderId,
+          paymentIntentId: paymentIntent.id,
+          clientSecret: paymentIntent.client_secret,
+          paymentStatus: paymentIntent.status,
+          status: 'REQUIRES_ACTION',
+        });
+      }
+
+      if (paymentIntent.status === 'processing') {
+        return ApiResponse.success('Paiement Stripe en cours de traitement', {
+          orderId,
+          paymentIntentId: paymentIntent.id,
+          paymentStatus: paymentIntent.status,
+          status: 'PENDING',
+        });
+      }
+
+      return ApiResponse.error("Le paiement Stripe n'a pas pu etre finalise", {
+        orderId,
+        paymentIntentId: paymentIntent.id,
+        paymentStatus: paymentIntent.status,
+        status: 'PENDING',
       });
     } catch (error) {
       return ApiResponse.error(
-        'Erreur lors de la creation de la session Stripe ',
+        'Erreur lors du paiement Stripe avec la carte sauvegardee',
+        error,
       );
     }
   }
@@ -453,14 +519,53 @@ export class CommandesService {
     }
   }
 
-  async confirmPaymentSuccess(orderId?: string, sessionId?: string) {
+  async confirmPaymentSuccess(
+    orderId?: string,
+    sessionId?: string,
+    paymentIntentId?: string,
+  ) {
     try {
       if (!orderId) {
         return ApiResponse.error("L'identifiant de commande est obligatoire");
       }
 
+      if (paymentIntentId) {
+        const paymentIntent =
+          await this.stripeService.retrievePaymentIntent(paymentIntentId);
+
+        if (paymentIntent.metadata?.orderId !== orderId) {
+          return ApiResponse.error(
+            'Le PaymentIntent Stripe ne correspond pas a la commande demandee',
+          );
+        }
+
+        if (paymentIntent.status !== 'succeeded') {
+          return ApiResponse.success('Paiement Stripe non finalise', {
+            orderId,
+            paymentIntentId,
+            paymentStatus: paymentIntent.status,
+            status: 'PENDING',
+          });
+        }
+
+        const updatedCommande = await this.markAsPaid(orderId);
+
+        if (!updatedCommande.success) {
+          return updatedCommande;
+        }
+
+        return ApiResponse.success('Commande payée avec succes', {
+          orderId,
+          paymentIntentId,
+          paymentStatus: paymentIntent.status,
+          commande: updatedCommande.data,
+        });
+      }
+
       if (!sessionId) {
-        return ApiResponse.error('Le session_id Stripe est obligatoire');
+        return ApiResponse.error(
+          'Le session_id Stripe ou payment_intent Stripe est obligatoire',
+        );
       }
 
       const session =
@@ -717,5 +822,9 @@ export class CommandesService {
     }
 
     return undefined;
+  }
+
+  private toStripeAmount(amount: number) {
+    return Math.round(Number(amount ?? 0) * 100);
   }
 }
