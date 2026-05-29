@@ -43,22 +43,24 @@ export class AdresseFacturationsService {
       );
     }
   }
-  async findDefault(id: string, currentUser: any) {
+  async cbDefault(id: string, currentUser: any) {
     try {
       if (!isValidObjectId(id)) {
         return ApiResponse.error("L'id est invalide");
       }
       await this.adresseModel.updateMany(
         { user: currentUser?.data?._id, _id: { $ne: new Types.ObjectId(id) } },
-        { $set: { defaultAf: false } },
+        { $set: { isDefault: false } },
       );
-      const adresseFacturation = await this.adresseModel.findOne({
-        _id: new Types.ObjectId(id),
-        user: currentUser?.data?._id,
-        defaultAf: true,
-      });
+      const adresseFacturation = await this.adresseModel.updateOne(
+        {
+          _id: new Types.ObjectId(id),
+          user: currentUser?.data?._id,
+        },
+        { $set: { isDefault: true } },
+      );
 
-      if (!adresseFacturation) {
+      if (adresseFacturation.matchedCount === 0) {
         return ApiResponse.error(
           'Adresse de facturation par défaut non trouvée',
         );
