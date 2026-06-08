@@ -56,6 +56,10 @@ export class ProductsController {
     // files contiendra un tableau de tes images
     return this.productsService.create(createProductDto, files);
   }
+  @Get('similar/:categoryId')
+  productSimilar(@Param('categoryId') categoryId: string) {
+    return this.productsService.productSimilar(categoryId);
+  }
   @Get()
   findAll(@Query() queryDto: QueryDto) {
     return this.productsService.findAll(queryDto);

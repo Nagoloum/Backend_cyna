@@ -106,6 +106,30 @@ export class ProductsService {
       return ApiResponse.error('Erreur lors de la création du produit');
     }
   }
+  async productSimilar(categoryId: string) {
+    try {
+      const products = await this.productModel
+        .find()
+        .populate({
+          path: 'service',
+          match: { category: new Types.ObjectId(categoryId) },
+          select: 'name slug',
+        })
+        .exec();
+
+      const similarProducts = products.filter((p) => p.service !== null);
+
+      return ApiResponse.success(
+        'Produits similaires récupérés avec succès',
+        similarProducts,
+      );
+    } catch (error) {
+      console.error(error);
+      return ApiResponse.error(
+        'Erreur lors de la récupération des produits similaires',
+      );
+    }
+  }
 
   async productByOrder() {
     try {

@@ -59,8 +59,8 @@ export class AdresseFacturationsController {
   }
   @UseGuards(AuthGuard)
   @Get('defaut/:id')
-  cbDefault(@Param('id') id: string, @CurrentUser() currentUser: any) {
-    return this.adresseFacturationsService.cbDefault(id, currentUser);
+  adresseDefault(@Param('id') id: string, @CurrentUser() currentUser: any) {
+    return this.adresseFacturationsService.adresseDefault(id, currentUser);
   }
 
   @UseGuards(AuthGuard)

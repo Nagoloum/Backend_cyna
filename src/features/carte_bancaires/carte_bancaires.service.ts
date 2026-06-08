@@ -129,7 +129,7 @@ export class CarteBancairesService {
             savedPaymentMethod.id,
           ),
           this.carteBancaireModel.updateMany(
-            { user: userId },
+            { user: userId, isDefault: true },
             { $set: { isDefault: false } },
           ),
         ]);
@@ -165,9 +165,14 @@ export class CarteBancairesService {
   // Retourne toutes les cartes sauvegardees par l'utilisateur connecte.
   async findByUser(currentUser: any) {
     try {
-      const carteBancaire = await this.carteBancaireModel.find({
-        user: currentUser?.data?._id,
-      });
+      const carteBancaire = await this.carteBancaireModel
+        .find(
+          {
+            user: currentUser?.data?._id,
+          },
+          '-user',
+        )
+        .sort({ isDefault: -1, createdAt: -1 });
       return ApiResponse.success(
         'Carte bancaire recuperee avec success',
         carteBancaire,
@@ -200,7 +205,7 @@ export class CarteBancairesService {
         );
       }
       return ApiResponse.success(
-        'Adresse de facturation recuperee avec success',
+        'Carte bancaire recuperee avec success',
         carteBancaire,
       );
     } catch (error) {
@@ -211,25 +216,31 @@ export class CarteBancairesService {
   }
 
   // Verifie et retourne la carte par defaut demandee pour l'utilisateur connecte.
-  async findDefault(id: string, currentUser: any) {
+  async cbDefault(id: string, currentUser: any) {
     try {
       if (!isValidObjectId(id)) {
         return ApiResponse.error("L'id est invalide");
       }
       await this.carteBancaireModel.updateMany(
         { user: currentUser?.data?._id, _id: { $ne: new Types.ObjectId(id) } },
-        { $set: { defaultCb: false } },
+        { $set: { isDefault: false } },
       );
-      const carteBancaire = await this.carteBancaireModel.findOne({
-        _id: new Types.ObjectId(id),
-        user: currentUser?.data?._id,
-        defaultCb: true,
-      });
+      const carteBancaire = await this.carteBancaireModel.updateOne(
+        {
+          user: currentUser?.data?._id,
+          _id: new Types.ObjectId(id),
+        },
+        { $set: { isDefault: true } },
+      );
+
+      if (carteBancaire.matchedCount === 0) {
+        return ApiResponse.error('Carte bancaire par defaut non trouvee');
+      }
 
       if (!carteBancaire) {
         return ApiResponse.error('Carte bancaire non trouvee');
       }
-      return ApiResponse.success('Carte bancaire recuperee avec success');
+      return ApiResponse.success('Carte bancaire par defaut mise a jour');
     } catch (error) {
       return ApiResponse.error(
         'Erreur lors de la recupération de la carte bancaire',
@@ -266,7 +277,7 @@ export class CarteBancairesService {
       }
 
       return ApiResponse.success(
-        'Adresse de facturation mise a jour avec success',
+        'Carte bancaire mise a jour avec success',
         await this.carteBancaireModel.findByIdAndUpdate(id, {
           $set: updateCarteBancaireDto,
         }),
