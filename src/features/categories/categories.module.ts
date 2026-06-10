@@ -6,6 +6,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { UsersModule } from '../users/users.module';
 import { JwtService } from '@nestjs/jwt';
 import { SharedService } from 'src/shared/services/shared.service';
+import { CloudinaryService } from 'src/shared/services/cloudinary.service';
 import { Product } from '../products/entities/product.entity';
 import { ProductsModule } from '../products/products.module';
 import { Service } from '../services/entities/service.entity';
@@ -21,7 +22,7 @@ import { ServicesModule } from '../services/services.module';
     forwardRef(() => ServicesModule),
   ],
   controllers: [CategoriesController],
-  providers: [CategoriesService, JwtService, SharedService],
+  providers: [CategoriesService, JwtService, SharedService, CloudinaryService],
   exports: [CategoriesService, MongooseModule],
 })
 export class CategoriesModule {}

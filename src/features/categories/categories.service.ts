@@ -7,8 +7,7 @@ import { Category } from './entities/category.entity';
 import { ApiResponse } from 'src/shared/responses/api-response';
 import { QueryDto } from 'src/shared/dto/query.dto';
 import { SharedService } from 'src/shared/services/shared.service';
-import * as fs from 'fs';
-import * as path from 'path';
+import { CloudinaryService } from 'src/shared/services/cloudinary.service';
 import { Product } from '../products/entities/product.entity';
 import { Service } from '../services/entities/service.entity';
 @Injectable()
@@ -19,14 +18,14 @@ export class CategoriesService {
     @InjectModel(Service.name) private serviceModel: Model<Service>,
 
     private readonly sharedService: SharedService,
+    private readonly cloudinaryService: CloudinaryService,
   ) {}
   async create(
     createCategoryDto: CreateCategoryDto,
     files: { newImage?: Express.Multer.File[] },
   ) {
     const file = files.newImage?.[0];
-    let fullPath = '';
-    let relativePath = '';
+    let uploadedUrl = '';
 
     try {
       // 1. Vérifications initiales (Nom et Ordre)
@@ -45,21 +44,9 @@ export class CategoriesService {
         return ApiResponse.error('Une catégorie a déjà cet ordre');
       }
 
-      // 2. Gestion du fichier (si présent)
+      // 2. Upload de l'image vers Cloudinary (si présente)
       if (file) {
-        const uploadDir = './storage/categories';
-        if (!fs.existsSync(uploadDir)) {
-          fs.mkdirSync(uploadDir, { recursive: true });
-        }
-
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-        const fileName = `cat-${uniqueSuffix}${path.extname(file.originalname)}`;
-
-        fullPath = path.join(uploadDir, fileName);
-        relativePath = `storage/categories/${fileName}`;
-
-        // Écriture physique du fichier
-        fs.writeFileSync(fullPath, file.buffer);
+        uploadedUrl = await this.cloudinaryService.uploadBuffer(file.buffer);
       }
 
       // 3. Création et Sauvegarde en BDD
@@ -67,15 +54,15 @@ export class CategoriesService {
       const createdCategory = new this.categoryModel({
         ...createCategoryDto,
         slug,
-        image: relativePath, // On stocke le chemin relatif
+        image: uploadedUrl, // On stocke l'URL Cloudinary
       });
 
       const savedCategory = await createdCategory.save();
       return ApiResponse.success('Catégorie créée', savedCategory);
     } catch (error) {
-      // 4. Nettoyage : Si la BDD échoue mais que le fichier a été écrit
-      if (fullPath && fs.existsSync(fullPath)) {
-        fs.unlinkSync(fullPath);
+      // 4. Nettoyage : Si la BDD échoue mais que l'image a été uploadée
+      if (uploadedUrl) {
+        await this.cloudinaryService.deleteByUrl(uploadedUrl);
       }
 
       return ApiResponse.error('Erreur lors de la création de la catégorie');
@@ -218,8 +205,8 @@ export class CategoriesService {
     files: { newImage?: Express.Multer.File[] },
   ) {
     const file = files?.newImage?.[0];
-    let oldImagePath: string | null = null;
-    let newRelativePath: string | null = null;
+    let oldImageUrl: string | null = null;
+    let newUploadedUrl: string | null = null;
 
     try {
       // 1. Chercher la catégorie existante
@@ -255,25 +242,13 @@ export class CategoriesService {
 
       // 4. Si une nouvelle image est envoyée
       if (file) {
-        const uploadDir = './storage/categories';
-        if (!fs.existsSync(uploadDir)) {
-          fs.mkdirSync(uploadDir, { recursive: true });
-        }
+        newUploadedUrl = await this.cloudinaryService.uploadBuffer(file.buffer);
 
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-        const fileName = `cat-${uniqueSuffix}${path.extname(file.originalname)}`;
+        // On garde précieusement l'URL de l'ancienne image pour la supprimer plus tard
+        oldImageUrl = category.image;
 
-        newRelativePath = `storage/categories/${fileName}`;
-        const fullPath = path.join(uploadDir, fileName);
-
-        // Écriture de la nouvelle image
-        fs.writeFileSync(fullPath, file.buffer);
-
-        // On garde précieusement le chemin de l'ancienne image pour la supprimer plus tard
-        oldImagePath = category.image;
-
-        // On met à jour le DTO avec le nouveau chemin
-        updateCategoryDto['image'] = newRelativePath;
+        // On met à jour le DTO avec la nouvelle URL
+        updateCategoryDto['image'] = newUploadedUrl;
       }
 
       // 3. Mise à jour du slug si le nom a changé
@@ -292,11 +267,8 @@ export class CategoriesService {
 
       // 5. Nettoyage de l'ancienne image
       // On ne supprime l'ancienne QUE si la mise à jour BDD a réussi ET qu'une nouvelle image a été fournie
-      if (file && oldImagePath) {
-        const oldFullRootPath = path.join(process.cwd(), oldImagePath);
-        if (fs.existsSync(oldFullRootPath)) {
-          fs.unlinkSync(oldFullRootPath);
-        }
+      if (file && oldImageUrl) {
+        await this.cloudinaryService.deleteByUrl(oldImageUrl);
       }
 
       return ApiResponse.success(
@@ -304,10 +276,9 @@ export class CategoriesService {
         updatedCategory,
       );
     } catch (error) {
-      // Si la BDD échoue mais qu'on avait déjà écrit la nouvelle image, on l'annule
-      if (newRelativePath) {
-        const tempPath = path.join(process.cwd(), newRelativePath);
-        if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+      // Si la BDD échoue mais qu'on avait déjà uploadé la nouvelle image, on l'annule
+      if (newUploadedUrl) {
+        await this.cloudinaryService.deleteByUrl(newUploadedUrl);
       }
 
       console.error(error);
@@ -327,20 +298,9 @@ export class CategoriesService {
       // 2. On supprime l'entrée en base de données
       await this.categoryModel.deleteOne({ slug });
 
-      // 3. Si la catégorie avait une image, on la supprime du disque
+      // 3. Si la catégorie avait une image, on la supprime sur Cloudinary
       if (category.image) {
-        const fullPath = path.join(process.cwd(), category.image);
-
-        // On vérifie si le fichier existe avant de tenter de le supprimer
-        if (fs.existsSync(fullPath)) {
-          try {
-            fs.unlinkSync(fullPath);
-          } catch (fileError) {
-            return ApiResponse.error(
-              'Une erreur est survenue lors de la suppression de l’image',
-            );
-          }
-        }
+        await this.cloudinaryService.deleteByUrl(category.image);
       }
 
       return ApiResponse.success('Catégorie supprimée avec succès');

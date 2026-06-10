@@ -9,21 +9,21 @@ import { Model, Types } from 'mongoose';
 import { ApiResponse } from 'src/shared/responses/api-response';
 import { resolveIdOrThrow } from 'src/shared/generic/resolveId';
 import { QueryDto } from 'src/shared/dto/query.dto';
-import * as fs from 'fs';
-import * as path from 'path';
 import { ImageDto } from 'src/shared/dto';
+import { CloudinaryService } from 'src/shared/services/cloudinary.service';
 @Injectable()
 export class ProductsService {
   constructor(
     @InjectModel(Product.name) private productModel: Model<Product>,
     private readonly sharedService: SharedService,
     private readonly servicesService: ServicesService,
+    private readonly cloudinaryService: CloudinaryService,
   ) {}
   async create(
     createProductDto: CreateProductDto,
     files: Express.Multer.File[],
   ) {
-    const savedFiles: string[] = []; // Pour garder trace en cas d'erreur (rollback)
+    const uploadedUrls: string[] = []; // Pour garder trace en cas d'erreur (rollback)
 
     try {
       // 1. Au moins une image est obligatoire à la création
@@ -57,28 +57,16 @@ export class ProductsService {
         'Service',
       );
 
-      // 3. Stockage des images physiques
-      const uploadDir = './storage/products';
-      if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true });
-      }
-
+      // 3. Stockage des images sur Cloudinary
       const imageObjects: ImageDto[] = [];
       if (files && files.length > 0) {
         for (const file of files) {
-          const uniqueSuffix =
-            Date.now() + '-' + Math.round(Math.random() * 1e9);
-          const fileName = `prod-${uniqueSuffix}${path.extname(file.originalname)}`;
-          const fullPath = path.join(uploadDir, fileName);
-          const relativePath = `storage/products/${fileName}`;
-
-          // Écriture disque
-          fs.writeFileSync(fullPath, file.buffer);
-          savedFiles.push(fullPath); // On mémorise le chemin absolu pour le rollback
+          const url = await this.cloudinaryService.uploadBuffer(file.buffer);
+          uploadedUrls.push(url); // On mémorise l'URL pour le rollback
 
           // On prépare l'objet pour le tableau 'images' du DTO/Schema
           imageObjects.push({
-            url: relativePath,
+            url,
           });
         }
       }
@@ -96,10 +84,8 @@ export class ProductsService {
       return ApiResponse.success('Produit créé avec succès', savedProduct);
     } catch (error) {
       // ROLLBACK : On supprime toutes les images si une erreur survient
-      for (const fullPath of savedFiles) {
-        if (fs.existsSync(fullPath)) {
-          fs.unlinkSync(fullPath);
-        }
+      for (const url of uploadedUrls) {
+        await this.cloudinaryService.deleteByUrl(url);
       }
 
       console.error(error);
@@ -259,7 +245,7 @@ export class ProductsService {
     updateProductDto: UpdateProductDto,
     files: Express.Multer.File[],
   ) {
-    const newSavedFiles: string[] = []; // Pour rollback en cas d'erreur
+    const newUploadedUrls: string[] = []; // Pour rollback en cas d'erreur
 
     try {
       // 1. Récupérer le produit existant
@@ -308,10 +294,6 @@ export class ProductsService {
       // Si l'utilisateur a envoyé de NOUVELLES images, on construit le tableau
       // final = (images existantes que l'utilisateur a gardées) + (nouveaux fichiers).
       if (files && files.length > 0) {
-        const uploadDir = './storage/products';
-        if (!fs.existsSync(uploadDir))
-          fs.mkdirSync(uploadDir, { recursive: true });
-
         // a. Lire la liste des chemins à conserver envoyée par le front via
         // multipart (`existingImages` peut être string OU string[]).
         const rawKeep = (updateProductDto as any).existingImages;
@@ -321,39 +303,24 @@ export class ProductsService {
             ? [String(rawKeep)]
             : [];
 
-        // b. Supprimer du disque les images de l'ancien produit qui ne sont
-        // PAS dans la liste à conserver.
+        // b. Supprimer sur Cloudinary les images de l'ancien produit qui ne
+        // sont PAS dans la liste à conserver.
         const keepSet = new Set(keepPaths);
         if (existingProduct.images && existingProduct.images.length > 0) {
           for (const oldImg of existingProduct.images) {
             if (keepSet.has(oldImg.url)) continue; // gardée par l'utilisateur
-            const oldPath = path.join(process.cwd(), oldImg.url);
-            if (fs.existsSync(oldPath)) {
-              try {
-                fs.unlinkSync(oldPath);
-              } catch (_e) {
-                console.error(
-                  `Impossible de supprimer l'ancienne image: ${oldPath}`,
-                );
-              }
-            }
+            await this.cloudinaryService.deleteByUrl(oldImg.url);
           }
         }
 
         // c. Enregistrer les NOUVELLES images
         const newImageObjects: ImageDto[] = [];
         for (const file of files) {
-          const uniqueSuffix =
-            Date.now() + '-' + Math.round(Math.random() * 1e9);
-          const fileName = `prod-${uniqueSuffix}${path.extname(file.originalname)}`;
-          const fullPath = path.join(uploadDir, fileName);
-          const relativePath = `storage/products/${fileName}`;
-
-          fs.writeFileSync(fullPath, file.buffer);
-          newSavedFiles.push(fullPath);
+          const url = await this.cloudinaryService.uploadBuffer(file.buffer);
+          newUploadedUrls.push(url);
 
           newImageObjects.push({
-            url: relativePath,
+            url,
           });
         }
 
@@ -401,8 +368,8 @@ export class ProductsService {
       );
     } catch (error) {
       // ROLLBACK : On supprime les nouvelles images si la BDD échoue
-      for (const fullPath of newSavedFiles) {
-        if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
+      for (const url of newUploadedUrls) {
+        await this.cloudinaryService.deleteByUrl(url);
       }
       console.error(error);
       return ApiResponse.error('Erreur lors de la mise à jour du produit');
@@ -417,24 +384,10 @@ export class ProductsService {
         return ApiResponse.error('Produit non trouvé');
       }
 
-      // 2. Nettoyage des images sur le disque
+      // 2. Nettoyage des images sur Cloudinary
       if (product.images && product.images.length > 0) {
         for (const img of product.images) {
-          // Utilisation de path.resolve pour garantir un chemin absolu correct
-          const filePath = path.resolve(process.cwd(), img.url);
-
-          if (fs.existsSync(filePath)) {
-            try {
-              fs.unlinkSync(filePath);
-            } catch (fileError) {
-              // On log l'erreur mais on ne bloque pas la réponse client
-              // car le produit est déjà supprimé en base de données.
-              console.error(
-                `Erreur lors de la suppression physique : ${filePath}`,
-                fileError,
-              );
-            }
-          }
+          await this.cloudinaryService.deleteByUrl(img.url);
         }
       }
 
