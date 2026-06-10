@@ -43,7 +43,17 @@ export async function createNestApp(
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
+  // Sur Vercel (serverless), les assets statiques de Swagger UI ne sont pas
+  // embarqués dans la fonction → on les charge depuis un CDN (même version que
+  // swagger-ui-dist installé) pour que la page /api/docs s'affiche correctement.
+  const SWAGGER_UI_VERSION = '5.30.2';
+  const SWAGGER_CDN = `https://cdn.jsdelivr.net/npm/swagger-ui-dist@${SWAGGER_UI_VERSION}`;
   SwaggerModule.setup('api/docs', app, document, {
+    customCssUrl: `${SWAGGER_CDN}/swagger-ui.css`,
+    customJs: [
+      `${SWAGGER_CDN}/swagger-ui-bundle.js`,
+      `${SWAGGER_CDN}/swagger-ui-standalone-preset.js`,
+    ],
     swaggerOptions: {
       tagsSorter: 'alpha',
       operationsSorter: 'alpha',
