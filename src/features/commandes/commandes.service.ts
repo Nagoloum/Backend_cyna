@@ -464,7 +464,6 @@ export class CommandesService {
         .populate('abonnements.product', 'name slug images')
         .populate('addresseFacturation', '-user')
         .exec();
-      console.log('Commande trouvée:', commande);
       if (!commande) {
         return ApiResponse.error('Commande non trouvee');
       }
