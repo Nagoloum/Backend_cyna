@@ -163,6 +163,11 @@ export class CategoriesService {
           { service: { $in: serviceIds } },
           'name slug priceMonth images stock is_selected order', // is_selected = top product
         )
+        .populate({
+          path: 'service',
+          select: 'name slug category',
+          populate: { path: 'category', select: 'name slug' },
+        })
         .sort({
           is_selected: -1, // Top products en premier
           stock: -1, // Stock disponible avant rupture
