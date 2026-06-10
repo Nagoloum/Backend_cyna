@@ -464,12 +464,13 @@ export class CommandesService {
         .populate('abonnements.product', 'name slug images')
         .populate('addresseFacturation', '-user')
         .exec();
+      console.log('Commande trouvée:', commande);
       if (!commande) {
         return ApiResponse.error('Commande non trouvee');
       }
       const isAdmin = currentUser?.data?.role === UserRoles.ADMIN;
-      const ownerId = this.extractId(commande?.user);
-      const isOwner = ownerId === currentUser?.data?._id;
+      const ownerId = this.extractId(commande?.user?._id);
+      const isOwner = ownerId?.toString() === currentUser?.data?._id.toString();
 
       if (!isOwner && !isAdmin) {
         return ApiResponse.error(
