@@ -159,10 +159,7 @@ export class CategoriesService {
 
       // Récupération avec Tri Intelligent
       const products = await this.productModel
-        .find(
-          { service: { $in: serviceIds } },
-          'name slug priceMonth images stock is_selected order', // is_selected = top product
-        )
+        .find({ service: { $in: serviceIds } })
         .populate({
           path: 'service',
           select: 'name slug category',
