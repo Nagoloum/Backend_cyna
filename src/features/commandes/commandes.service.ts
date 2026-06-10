@@ -458,18 +458,17 @@ export class CommandesService {
   async findOne(reference: string, currentUser: any) {
     try {
       const commande = await this.commandeModel
-        .findOne({ reference })
+        .findOne({ reference: reference.trim() })
         .populate('user', 'firstName lastName email role')
         .populate('cb', 'carteName carteNumber carteDate')
         .populate('abonnements.product', 'name slug images')
+        .populate('addresseFacturation', '-user')
         .exec();
-
       if (!commande) {
         return ApiResponse.error('Commande non trouvee');
       }
-
       const isAdmin = currentUser?.data?.role === UserRoles.ADMIN;
-      const ownerId = this.extractId(commande.user);
+      const ownerId = this.extractId(commande?.user);
       const isOwner = ownerId === currentUser?.data?._id;
 
       if (!isOwner && !isAdmin) {
