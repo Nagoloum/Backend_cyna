@@ -122,7 +122,7 @@ export class AuthService {
       );
 
       return ApiResponse.success(
-        'Inscription réussie, vérifiez votre email pour confirmer votre compte',
+        'Inscription réussie, vérifiez votre email pour confirmer votre compte puis vous connecter',
       );
     } catch (error: any) {
       // ← Ajoute ça
@@ -159,7 +159,7 @@ export class AuthService {
       );
     }
   }
-  async forgotPassword(currentEmail) {
+  async forgotPassword(currentEmail: string) {
     try {
       // une fois que j'ai email je verife s'il existe.
       const currentUser = await this.userModel.findOne(
