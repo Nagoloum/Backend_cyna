@@ -29,6 +29,13 @@ export class AdresseFacturationsService {
         return ApiResponse.error('Cette adresse de facturation existe deja');
       }
 
+      if (createAdresseFacturationDto.isDefault) {
+        await this.adresseModel.updateMany(
+          { user: currentUser?.data?._id, isDefault: true },
+          { $set: { isDefault: false } },
+        );
+      }
+
       const createAdresseFacturation = await this.adresseModel.create({
         ...createAdresseFacturationDto,
         user: currentUser?.data?._id,
@@ -44,7 +51,7 @@ export class AdresseFacturationsService {
       );
     }
   }
-  async findDefault(id: string, currentUser: any) {
+  async adresseDefault(id: string, currentUser: any) {
     try {
       if (!isValidObjectId(id)) {
         return ApiResponse.error("L'id est invalide");

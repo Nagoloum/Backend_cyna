@@ -97,22 +97,41 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ValidationPipe } from '@nestjs/common';
-import { NestExpressApplication } from '@nestjs/platform-express';
-import { join } from 'path';
+import {
+  ExpressAdapter,
+  NestExpressApplication,
+} from '@nestjs/platform-express';
 import helmet from 'helmet';
 import { GlobalExceptionFilter } from './shared/filters/global-exception.filter';
 
-async function bootstrap() {
+/**
+ * Crée et configure l'application NestJS.
+ *
+ * @param expressInstance  instance Express existante (utilisée par le handler
+ *   serverless Vercel). Si absente, Nest crée sa propre instance (mode local).
+ *
+ * NB : cette fonction n'appelle NI `listen()` NI `init()`. C'est à l'appelant
+ * de choisir : `listen()` en local, `init()` en serverless.
+ */
+export async function createNestApp(
+  expressInstance?: unknown,
+): Promise<NestExpressApplication> {
+  // Contournement DNS Atlas (utile en local Windows ; no-op si l'URL n'est
+  // pas en mongodb+srv://).
   process.env.DATABASE_URL = await resolveAtlasUrl(process.env.DATABASE_URL ?? '');
 
-  const isProduction = process.env.NODE_ENV === 'production';
+  const app = expressInstance
+    ? await NestFactory.create<NestExpressApplication>(
+        AppModule,
+        new ExpressAdapter(expressInstance as any),
+        { rawBody: true },
+      )
+    : await NestFactory.create<NestExpressApplication>(AppModule, {
+        rawBody: true,
+      });
 
-  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
-    rawBody: true,
-  });
-
-  // Headers de sécurité HTTP (CSP désactivée : API JSON + images statiques,
-  // crossOriginResourcePolicy ouvert pour servir /storage au frontend).
+  // Headers de sécurité HTTP. CSP désactivée (API JSON, pas de pages HTML
+  // hormis Swagger qui charge ses assets depuis un CDN).
   app.use(
     helmet({
       contentSecurityPolicy: false,
@@ -133,15 +152,17 @@ async function bootstrap() {
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
   });
 
+  // prefix API
   app.setGlobalPrefix('api');
   // whitelist : supprime silencieusement les champs absents des DTOs
   // (anti mass-assignment) ; transform : caste les types déclarés.
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   app.useGlobalFilters(new GlobalExceptionFilter());
 
-  // Swagger uniquement hors production : la documentation expose la surface
-  // d'attaque complète de l'API.
-  if (!isProduction) {
+  // === Swagger Configuration ===
+  // Actif par défaut (la doc est déployée sur Vercel) ; mettre
+  // SWAGGER_ENABLED=false pour la couper en production si besoin.
+  if (process.env.SWAGGER_ENABLED !== 'false') {
     const config = new DocumentBuilder()
       .setTitle('CYNA API')
       .setDescription('The CYNA API description')
@@ -150,12 +171,39 @@ async function bootstrap() {
       .build();
 
     const document = SwaggerModule.createDocument(app, config);
+    // Sur Vercel (serverless), les assets statiques de Swagger UI ne sont pas
+    // embarqués dans la fonction → on les charge depuis un CDN (même version que
+    // swagger-ui-dist installé) pour que la page /api/docs s'affiche correctement.
+    const SWAGGER_UI_VERSION = '5.30.2';
+    const SWAGGER_CDN = `https://cdn.jsdelivr.net/npm/swagger-ui-dist@${SWAGGER_UI_VERSION}`;
     SwaggerModule.setup('api/docs', app, document, {
-      swaggerOptions: { tagsSorter: 'alpha', operationsSorter: 'alpha' },
+      customCssUrl: `${SWAGGER_CDN}/swagger-ui.css`,
+      customJs: [
+        `${SWAGGER_CDN}/swagger-ui-bundle.js`,
+        `${SWAGGER_CDN}/swagger-ui-standalone-preset.js`,
+      ],
+      swaggerOptions: {
+        tagsSorter: 'alpha',
+        operationsSorter: 'alpha',
+      },
     });
   }
 
-  app.useStaticAssets(join(__dirname, '..', 'storage'), { prefix: '/storage/' });
+  // NB : le stockage local des images (dossier `storage/`) a été remplacé par
+  // Cloudinary (cf. CloudinaryService) car le système de fichiers est en
+  // lecture seule sur Vercel.
+
+  return app;
+}
+
+async function bootstrap() {
+  const app = await createNestApp();
   await app.listen(process.env.PORT ?? 3000);
 }
-bootstrap();
+
+// En local / hébergement classique : on démarre un serveur HTTP.
+// Sur Vercel (serverless), c'est `api/index.js` qui pilote l'app, donc on
+// n'appelle pas listen() pour éviter d'ouvrir un port.
+if (!process.env.VERCEL) {
+  bootstrap();
+}

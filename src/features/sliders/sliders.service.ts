@@ -5,22 +5,20 @@ import { Slider } from './entities/slider.entity';
 import { Model } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
 import { ApiResponse } from 'src/shared/responses/api-response';
-import { SlidersModule } from './sliders.module';
-import * as fs from 'fs';
-import * as path from 'path';
+import { CloudinaryService } from 'src/shared/services/cloudinary.service';
 
 @Injectable()
 export class SlidersService {
   constructor(
     @InjectModel(Slider.name) private readonly sliderModel: Model<Slider>,
+    private readonly cloudinaryService: CloudinaryService,
   ) {}
   async create(
     createSliderDto: CreateSliderDto,
     files: { newImage?: Express.Multer.File[] },
   ) {
     const file = files.newImage?.[0];
-    let fullPath = '';
-    let relativePath = '';
+    let uploadedUrl = '';
 
     try {
       // 1. Vérifications initiales
@@ -34,32 +32,22 @@ export class SlidersService {
       });
       if (existingOrder) return ApiResponse.error('Cet ordre est déjà utilisé');
 
-      // 2. Gestion du fichier image
+      // 2. Upload de l'image vers Cloudinary
       if (file) {
-        const uploadDir = './storage/sliders';
-        if (!fs.existsSync(uploadDir)) {
-          fs.mkdirSync(uploadDir, { recursive: true });
-        }
-        const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-        const fileName = `slider-${uniqueSuffix}${path.extname(file.originalname)}`;
-
-        fullPath = path.join(uploadDir, fileName);
-        relativePath = `storage/sliders/${fileName}`;
-
-        fs.writeFileSync(fullPath, file.buffer);
+        uploadedUrl = await this.cloudinaryService.uploadBuffer(file.buffer);
       }
 
       // 3. Création de l'instance et sauvegarde en BDD
       const newSlider = new this.sliderModel({
         ...createSliderDto,
-        image: relativePath, // On stocke le chemin relatif
+        image: uploadedUrl, // On stocke l'URL Cloudinary
       });
       const savedSlider = await newSlider.save();
 
       return ApiResponse.success('Slider créé avec succès', savedSlider);
     } catch (error) {
-      if (fullPath && fs.existsSync(fullPath)) {
-        fs.unlinkSync(fullPath);
+      if (uploadedUrl) {
+        await this.cloudinaryService.deleteByUrl(uploadedUrl);
       }
       return ApiResponse.error('Erreur lors de la création du slider');
     }
@@ -97,8 +85,8 @@ export class SlidersService {
     files: { newImage?: Express.Multer.File[] },
   ) {
     const file = files?.newImage?.[0];
-    let oldImagePath: string | null = null;
-    let newRelativePath: string | null = null;
+    let oldImageUrl: string | null = null;
+    let newUploadedUrl: string | null = null;
 
     try {
       // 1. Trouver le slider actuel
@@ -134,23 +122,13 @@ export class SlidersService {
       }
       // 2. Gestion de la nouvelle image (si présente)
       if (file) {
-        const uploadDir = './storage/sliders';
-        if (!fs.existsSync(uploadDir)) {
-          fs.mkdirSync(uploadDir, { recursive: true });
-        }
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-        const fileName = `slider-${uniqueSuffix}${path.extname(file.originalname)}`;
-
-        newRelativePath = `storage/sliders/${fileName}`;
-        const fullPath = path.join(uploadDir, fileName);
-        // Écriture du fichier
-        fs.writeFileSync(fullPath, file.buffer);
+        newUploadedUrl = await this.cloudinaryService.uploadBuffer(file.buffer);
 
         // On mémorise l'ancienne image pour la supprimer après le succès en BDD
-        oldImagePath = slider.image;
+        oldImageUrl = slider.image;
 
-        // Mise à jour du chemin dans le DTO
-        updateSliderDto.newImage = newRelativePath;
+        // Mise à jour de l'URL dans le DTO
+        updateSliderDto.newImage = newUploadedUrl;
       }
       const updatedSlider = await this.sliderModel.findByIdAndUpdate(
         idSlider, // Mongoose sait qu'il s'agit de l'ID technique
@@ -163,11 +141,8 @@ export class SlidersService {
       }
 
       // La suite de votre logique pour l'image...
-      if (file && oldImagePath) {
-        const oldFullRootPath = path.join(process.cwd(), oldImagePath);
-        if (fs.existsSync(oldFullRootPath)) {
-          fs.unlinkSync(oldFullRootPath);
-        }
+      if (file && oldImageUrl) {
+        await this.cloudinaryService.deleteByUrl(oldImageUrl);
       }
 
       return ApiResponse.success(
@@ -175,9 +150,8 @@ export class SlidersService {
         updatedSlider,
       );
     } catch (error) {
-      if (newRelativePath) {
-        const tempPath = path.join(process.cwd(), newRelativePath);
-        if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+      if (newUploadedUrl) {
+        await this.cloudinaryService.deleteByUrl(newUploadedUrl);
       }
       return ApiResponse.error('Erreur lors de la mise à jour');
     }
@@ -191,18 +165,9 @@ export class SlidersService {
         return ApiResponse.error('Slider introuvable.');
       }
       await this.sliderModel.findByIdAndDelete(idSlider);
-      // 2. Suppression du fichier physique
+      // 2. Suppression de l'image sur Cloudinary
       if (slider.image) {
-        const fullPath = path.join(process.cwd(), slider.image);
-        if (fs.existsSync(fullPath)) {
-          try {
-            fs.unlinkSync(fullPath);
-          } catch (fileError) {
-            return ApiResponse.error(
-              'Erreur lors de la suppression du slider.',
-            );
-          }
-        }
+        await this.cloudinaryService.deleteByUrl(slider.image);
       }
       return ApiResponse.success('Slider supprimé avec succès.');
     } catch (error) {
