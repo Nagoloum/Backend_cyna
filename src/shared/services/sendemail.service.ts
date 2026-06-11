@@ -5,10 +5,13 @@ import * as nodemailer from 'nodemailer';
 config();
 
 // URLs configurables : en production les liens des emails doivent pointer
-// vers le vrai domaine, jamais vers localhost.
-const FRONTEND_URL = (
-  process.env.FRONTEND_URL ?? 'http://localhost:5173'
-).replace(/\/+$/, '');
+// vers le vrai domaine, jamais vers localhost. FRONTEND_URL peut contenir
+// plusieurs origines (CORS) séparées par des virgules : la première est
+// utilisée pour les liens.
+const FRONTEND_URL = (process.env.FRONTEND_URL ?? 'http://localhost:5173')
+  .split(',')[0]
+  .trim()
+  .replace(/\/+$/, '');
 const MAIL_FROM = process.env.MAIL_FROM ?? 'no-reply@cyna.fr';
 
 @Injectable()

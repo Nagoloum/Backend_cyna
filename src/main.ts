@@ -140,13 +140,19 @@ export async function createNestApp(
   );
 
   // CORS restreint aux origines connues (configurable via FRONTEND_URL,
-  // plusieurs origines séparées par des virgules acceptées).
-  const allowedOrigins = (
-    process.env.FRONTEND_URL ?? 'http://localhost:5173,http://localhost'
-  )
-    .split(',')
-    .map((o) => o.trim())
-    .filter(Boolean);
+  // plusieurs origines séparées par des virgules acceptées). Le front de
+  // production (Vercel) est toujours autorisé en plus des origines locales.
+  const allowedOrigins = [
+    ...new Set(
+      (
+        (process.env.FRONTEND_URL ?? '') +
+        ',http://localhost:5173,http://localhost,https://cynaapp.vercel.app'
+      )
+        .split(',')
+        .map((o) => o.trim())
+        .filter(Boolean),
+    ),
+  ];
   app.enableCors({
     origin: allowedOrigins,
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],

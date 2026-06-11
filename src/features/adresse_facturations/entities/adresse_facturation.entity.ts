@@ -1,6 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
-import { User } from 'src/features/users/entities/user.entity';
+import { User } from '../../users/entities/user.entity';
 @Schema({ timestamps: true })
 export class AdresseFacturation extends Document {
   @Prop({ required: true })

@@ -6,7 +6,7 @@ import {
   IsOptional,
   Min,
 } from 'class-validator';
-import { PeriodeAbonnement } from 'src/shared/common/periode-abonnement.enum';
+import { PeriodeAbonnement } from '../common/periode-abonnement.enum';
 export class AbonnementDto {
   @ApiProperty()
   @IsNotEmpty({ message: 'Quantité est obligatoire' })

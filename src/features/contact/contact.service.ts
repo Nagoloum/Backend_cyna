@@ -5,7 +5,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { concat } from 'rxjs';
 import { Contact } from './entities/contact.entity';
 import { Model } from 'mongoose';
-import { ApiResponse } from 'src/shared/responses/api-response';
+import { ApiResponse } from '../../shared/responses/api-response';
 
 @Injectable()
 export class ContactService {

@@ -8,7 +8,7 @@ import {
   IsOptional,
   ValidateNested,
 } from 'class-validator';
-import { StatutCommande } from 'src/shared/common/statut-commande.enum';
+import { StatutCommande } from '../../../shared/common/statut-commande.enum';
 import { AbonnementDto } from '../../../shared/dto';
 
 export class CreateCommandeDto {

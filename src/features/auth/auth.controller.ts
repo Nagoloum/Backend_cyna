@@ -11,10 +11,10 @@ import {
 import { AuthService } from './auth.service';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import { LoginDto, RegisterDto } from './dto/auth.dto';
-import { CurrentUser } from 'src/shared/decorators/current-user.decorators';
-import { AuthGuard } from 'src/shared/guards/auth.guard';
+import { CurrentUser } from '../../shared/decorators/current-user.decorators';
+import { AuthGuard } from '../../shared/guards/auth.guard';
 import { User } from '../users/entities/user.entity';
-import { FormDataTransformPipe } from 'src/shared/pipes/formdata-transform.pipe';
+import { FormDataTransformPipe } from '../../shared/pipes/formdata-transform.pipe';
 import { NoFilesInterceptor } from '@nestjs/platform-express';
 import { Throttle } from '@nestjs/throttler';
 

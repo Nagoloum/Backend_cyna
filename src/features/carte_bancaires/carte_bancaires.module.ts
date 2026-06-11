@@ -8,7 +8,7 @@ import {
 import { MongooseModule } from '@nestjs/mongoose';
 import { UsersModule } from '../users/users.module';
 import { JwtService } from '@nestjs/jwt';
-import { StripeModule } from 'src/stripe/stripe.module';
+import { StripeModule } from '../../stripe/stripe.module';
 
 @Module({
   imports: [

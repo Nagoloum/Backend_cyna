@@ -1,6 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
-import { Category } from 'src/features/categories/entities/category.entity';
+import { Category } from '../../categories/entities/category.entity';
 
 @Schema({ timestamps: true })
 export class Service extends Document {

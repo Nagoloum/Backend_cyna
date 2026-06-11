@@ -13,10 +13,10 @@ import { CreateContactDto } from './dto/create-contact.dto';
 import { UpdateContactDto } from './dto/update-contact.dto';
 import { ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
-import { AuthGuard } from 'src/shared/guards/auth.guard';
-import { AuthorizeGuard } from 'src/shared/guards/authorization.guard';
-import { AuthorizeRoles } from 'src/shared/decorators/authorize-roles.decorator';
-import { UserRoles } from 'src/shared/common/user-roles.enum';
+import { AuthGuard } from '../../shared/guards/auth.guard';
+import { AuthorizeGuard } from '../../shared/guards/authorization.guard';
+import { AuthorizeRoles } from '../../shared/decorators/authorize-roles.decorator';
+import { UserRoles } from '../../shared/common/user-roles.enum';
 
 @Controller('contact')
 @ApiConsumes('multipart/form-data')

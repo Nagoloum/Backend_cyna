@@ -6,8 +6,8 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { CategoriesModule } from '../categories/categories.module';
 import { UsersModule } from '../users/users.module';
 import { JwtService } from '@nestjs/jwt';
-import { SharedService } from 'src/shared/services/shared.service';
-import { CloudinaryService } from 'src/shared/services/cloudinary.service';
+import { SharedService } from '../../shared/services/shared.service';
+import { CloudinaryService } from '../../shared/services/cloudinary.service';
 import { ServicesModule } from '../services/services.module';
 
 @Module({

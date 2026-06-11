@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { config } from 'dotenv';
-import { User } from 'src/features/users/entities/user.entity';
+import { User } from '../../features/users/entities/user.entity';
 import { StringValue } from 'ms';
 
 config();

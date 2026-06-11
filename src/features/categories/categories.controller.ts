@@ -17,13 +17,13 @@ import { CategoriesService } from './categories.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { ApiBearerAuth, ApiConsumes, ApiTags } from '@nestjs/swagger';
-import { AuthorizeRoles } from 'src/shared/decorators/authorize-roles.decorator';
-import { AuthGuard } from 'src/shared/guards/auth.guard';
-import { UserRoles } from 'src/shared/common/user-roles.enum';
-import { AuthorizeGuard } from 'src/shared/guards/authorization.guard';
-import { QueryDto } from 'src/shared/dto/query.dto';
+import { AuthorizeRoles } from '../../shared/decorators/authorize-roles.decorator';
+import { AuthGuard } from '../../shared/guards/auth.guard';
+import { UserRoles } from '../../shared/common/user-roles.enum';
+import { AuthorizeGuard } from '../../shared/guards/authorization.guard';
+import { QueryDto } from '../../shared/dto/query.dto';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
-import { FormDataTransformPipe } from 'src/shared/pipes/formdata-transform.pipe';
+import { FormDataTransformPipe } from '../../shared/pipes/formdata-transform.pipe';
 import { memoryStorage } from 'multer';
 
 @ApiTags('Categories')

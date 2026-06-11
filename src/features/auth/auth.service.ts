@@ -3,19 +3,19 @@ import { LoginDto, RegisterDto } from './dto/auth.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import { User } from '../users/entities/user.entity';
 import { Model } from 'mongoose';
-import { ApiResponse } from 'src/shared/responses/api-response';
+import { ApiResponse } from '../../shared/responses/api-response';
 import * as bcrypt from 'bcrypt';
-import { SharedService } from 'src/shared/services/shared.service';
-import { SendEmailService } from 'src/shared/services/sendemail.service';
+import { SharedService } from '../../shared/services/shared.service';
+import { SendEmailService } from '../../shared/services/sendemail.service';
 import { JwtService } from '@nestjs/jwt';
 import { config } from 'dotenv';
 import { StringValue } from 'ms';
 import { Console } from 'console';
-import { UserRoles } from 'src/shared/common/user-roles.enum';
+import { UserRoles } from '../../shared/common/user-roles.enum';
 import { console } from 'inspector/promises';
 import { authenticator } from 'otplib';
 import * as QRCode from 'qrcode';
-import { TwoFactorMethod } from 'src/shared/common/two-factor-method.enum';
+import { TwoFactorMethod } from '../../shared/common/two-factor-method.enum';
 
 config();
 

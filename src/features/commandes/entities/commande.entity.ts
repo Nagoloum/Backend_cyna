@@ -1,11 +1,11 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
-import { StatutCommande } from 'src/shared/common/statut-commande.enum';
+import { StatutCommande } from '../../../shared/common/statut-commande.enum';
 import {
   Abonnement,
   AbonnementSchema,
 } from '../../../shared/model/abonnement.entity';
-import { PeriodeAbonnement } from 'src/shared/common/periode-abonnement.enum';
+import { PeriodeAbonnement } from '../../../shared/common/periode-abonnement.enum';
 
 @Schema({ timestamps: true })
 export class Commande extends Document {

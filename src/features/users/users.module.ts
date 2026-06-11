@@ -4,7 +4,7 @@ import { UsersController } from './users.controller';
 import { User, UserSchema } from './entities/user.entity';
 import { MongooseModule } from '@nestjs/mongoose';
 import { JwtService } from '@nestjs/jwt';
-import { SharedService } from 'src/shared/services/shared.service';
+import { SharedService } from '../../shared/services/shared.service';
 
 @Module({
   imports: [

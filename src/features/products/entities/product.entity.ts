@@ -1,7 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
-import { Service } from 'src/features/services/entities/service.entity';
-import { Image, ImageSchema } from 'src/shared/model/image.entity';
+import { Service } from '../../services/entities/service.entity';
+import { Image, ImageSchema } from '../../../shared/model/image.entity';
 
 @Schema({ timestamps: true })
 export class Product extends Document {
