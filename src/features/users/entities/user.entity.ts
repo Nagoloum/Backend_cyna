@@ -1,7 +1,7 @@
 import { Prop, raw, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
-import { UserRoles } from 'src/shared/common/user-roles.enum';
-import { TwoFactorMethod } from 'src/shared/common/two-factor-method.enum';
+import { UserRoles } from '../../../shared/common/user-roles.enum';
+import { TwoFactorMethod } from '../../../shared/common/two-factor-method.enum';
 
 @Schema({ timestamps: true })
 export class User extends Document {

@@ -4,7 +4,7 @@ import { ServicesController } from './services.controller';
 import { Service, ServiceSchema } from './entities/service.entity';
 import { MongooseModule } from '@nestjs/mongoose';
 import { CategoriesModule } from '../categories/categories.module';
-import { SharedService } from 'src/shared/services/shared.service';
+import { SharedService } from '../../shared/services/shared.service';
 import { JwtService } from '@nestjs/jwt';
 import { UsersModule } from '../users/users.module';
 

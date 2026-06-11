@@ -1,17 +1,17 @@
-import { escapeRegex } from 'src/shared/generic/escape-regex';
+import { escapeRegex } from '../../shared/generic/escape-regex';
 import { Injectable } from '@nestjs/common';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
-import { SharedService } from 'src/shared/services/shared.service';
+import { SharedService } from '../../shared/services/shared.service';
 import { ServicesService } from '../services/services.service';
 import { Product } from './entities/product.entity';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { ApiResponse } from 'src/shared/responses/api-response';
-import { resolveIdOrThrow } from 'src/shared/generic/resolveId';
-import { QueryDto } from 'src/shared/dto/query.dto';
-import { ImageDto } from 'src/shared/dto';
-import { CloudinaryService } from 'src/shared/services/cloudinary.service';
+import { ApiResponse } from '../../shared/responses/api-response';
+import { resolveIdOrThrow } from '../../shared/generic/resolveId';
+import { QueryDto } from '../../shared/dto/query.dto';
+import { ImageDto } from '../../shared/dto';
+import { CloudinaryService } from '../../shared/services/cloudinary.service';
 @Injectable()
 export class ProductsService {
   constructor(

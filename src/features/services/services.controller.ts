@@ -14,13 +14,13 @@ import {
 import { ServicesService } from './services.service';
 import { CreateServiceDto } from './dto/create-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
-import { AuthorizeRoles } from 'src/shared/decorators/authorize-roles.decorator';
-import { UserRoles } from 'src/shared/common/user-roles.enum';
-import { AuthGuard } from 'src/shared/guards/auth.guard';
-import { AuthorizeGuard } from 'src/shared/guards/authorization.guard';
-import { QueryDto } from 'src/shared/dto/query.dto';
+import { AuthorizeRoles } from '../../shared/decorators/authorize-roles.decorator';
+import { UserRoles } from '../../shared/common/user-roles.enum';
+import { AuthGuard } from '../../shared/guards/auth.guard';
+import { AuthorizeGuard } from '../../shared/guards/authorization.guard';
+import { QueryDto } from '../../shared/dto/query.dto';
 import { ApiBearerAuth, ApiConsumes, ApiTags } from '@nestjs/swagger';
-import { FormDataTransformPipe } from 'src/shared/pipes/formdata-transform.pipe';
+import { FormDataTransformPipe } from '../../shared/pipes/formdata-transform.pipe';
 import { NoFilesInterceptor } from '@nestjs/platform-express';
 @ApiTags('Services')
 @ApiBearerAuth()

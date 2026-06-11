@@ -1,14 +1,14 @@
-import { escapeRegex } from 'src/shared/generic/escape-regex';
+import { escapeRegex } from '../../shared/generic/escape-regex';
 import { Injectable } from '@nestjs/common';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Category } from './entities/category.entity';
-import { ApiResponse } from 'src/shared/responses/api-response';
-import { QueryDto } from 'src/shared/dto/query.dto';
-import { SharedService } from 'src/shared/services/shared.service';
-import { CloudinaryService } from 'src/shared/services/cloudinary.service';
+import { ApiResponse } from '../../shared/responses/api-response';
+import { QueryDto } from '../../shared/dto/query.dto';
+import { SharedService } from '../../shared/services/shared.service';
+import { CloudinaryService } from '../../shared/services/cloudinary.service';
 import { Product } from '../products/entities/product.entity';
 import { Service } from '../services/entities/service.entity';
 @Injectable()

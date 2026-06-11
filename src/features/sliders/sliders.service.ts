@@ -4,8 +4,8 @@ import { UpdateSliderDto } from './dto/update-slider.dto';
 import { Slider } from './entities/slider.entity';
 import { Model } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
-import { ApiResponse } from 'src/shared/responses/api-response';
-import { CloudinaryService } from 'src/shared/services/cloudinary.service';
+import { ApiResponse } from '../../shared/responses/api-response';
+import { CloudinaryService } from '../../shared/services/cloudinary.service';
 
 @Injectable()
 export class SlidersService {

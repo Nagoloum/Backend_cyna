@@ -1,15 +1,15 @@
-import { escapeRegex } from 'src/shared/generic/escape-regex';
+import { escapeRegex } from '../../shared/generic/escape-regex';
 import { Injectable } from '@nestjs/common';
 import { CreateServiceDto } from './dto/create-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { SharedService } from 'src/shared/services/shared.service';
+import { SharedService } from '../../shared/services/shared.service';
 import { Service } from './entities/service.entity';
-import { ApiResponse } from 'src/shared/responses/api-response';
-import { QueryDto } from 'src/shared/dto/query.dto';
+import { ApiResponse } from '../../shared/responses/api-response';
+import { QueryDto } from '../../shared/dto/query.dto';
 import { CategoriesService } from '../categories/categories.service';
-import { resolveIdOrThrow } from 'src/shared/generic/resolveId';
+import { resolveIdOrThrow } from '../../shared/generic/resolveId';
 
 @Injectable()
 export class ServicesService {

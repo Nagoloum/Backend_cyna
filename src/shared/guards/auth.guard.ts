@@ -10,7 +10,7 @@ import { JwtService } from '@nestjs/jwt';
 import { config } from 'dotenv';
 import { Request } from 'express';
 
-import { UsersService } from 'src/features/users/users.service';
+import { UsersService } from '../../features/users/users.service';
 
 config();
 @Injectable()

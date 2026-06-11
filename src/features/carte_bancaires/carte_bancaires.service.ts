@@ -1,13 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { CreateCarteBancaireDto } from './dto/create-carte_bancaire.dto';
 import { UpdateCarteBancaireDto } from './dto/update-carte_bancaire.dto';
-import { ApiResponse } from 'src/shared/responses/api-response';
+import { ApiResponse } from '../../shared/responses/api-response';
 import { InjectModel } from '@nestjs/mongoose';
 import { CarteBancaire } from './entities/carte_bancaire.entity';
 import { isValidObjectId, Model, Types } from 'mongoose';
-import { UserRoles } from 'src/shared/common/user-roles.enum';
+import { UserRoles } from '../../shared/common/user-roles.enum';
 import { User } from '../users/entities/user.entity';
-import { StripeService } from 'src/shared/services/stripe.service';
+import { StripeService } from '../../shared/services/stripe.service';
 
 @Injectable()
 export class CarteBancairesService {

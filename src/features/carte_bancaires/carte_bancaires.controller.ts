@@ -14,10 +14,10 @@ import { CarteBancairesService } from './carte_bancaires.service';
 import { CreateCarteBancaireDto } from './dto/create-carte_bancaire.dto';
 import { UpdateCarteBancaireDto } from './dto/update-carte_bancaire.dto';
 import { ApiBearerAuth, ApiConsumes, ApiTags } from '@nestjs/swagger';
-import { AuthGuard } from 'src/shared/guards/auth.guard';
+import { AuthGuard } from '../../shared/guards/auth.guard';
 import { NoFilesInterceptor } from '@nestjs/platform-express';
-import { FormDataTransformPipe } from 'src/shared/pipes/formdata-transform.pipe';
-import { CurrentUser } from 'src/shared/decorators/current-user.decorators';
+import { FormDataTransformPipe } from '../../shared/pipes/formdata-transform.pipe';
+import { CurrentUser } from '../../shared/decorators/current-user.decorators';
 @ApiTags('Carte Bancaires')
 @ApiBearerAuth()
 @Controller('carte-bancaires')

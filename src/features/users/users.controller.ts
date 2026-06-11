@@ -11,12 +11,12 @@ import {
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { AuthorizeRoles } from 'src/shared/decorators/authorize-roles.decorator';
-import { UserRoles } from 'src/shared/common/user-roles.enum';
-import { AuthGuard } from 'src/shared/guards/auth.guard';
-import { AuthorizeGuard } from 'src/shared/guards/authorization.guard';
-import { CurrentUser } from 'src/shared/decorators/current-user.decorators';
-import { FormDataTransformPipe } from 'src/shared/pipes/formdata-transform.pipe';
+import { AuthorizeRoles } from '../../shared/decorators/authorize-roles.decorator';
+import { UserRoles } from '../../shared/common/user-roles.enum';
+import { AuthGuard } from '../../shared/guards/auth.guard';
+import { AuthorizeGuard } from '../../shared/guards/authorization.guard';
+import { CurrentUser } from '../../shared/decorators/current-user.decorators';
+import { FormDataTransformPipe } from '../../shared/pipes/formdata-transform.pipe';
 import { NoFilesInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import { ChangePasswordProfilDto } from './dto/create-user.dto';

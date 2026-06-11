@@ -16,13 +16,13 @@ import { CreateAdresseFacturationDto } from './dto/create-adresse_facturation.dt
 import { UpdateAdresseFacturationDto } from './dto/update-adresse_facturation.dto';
 import { ApiBearerAuth, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import { NoFilesInterceptor } from '@nestjs/platform-express';
-import { AuthGuard } from 'src/shared/guards/auth.guard';
-import { FormDataTransformPipe } from 'src/shared/pipes/formdata-transform.pipe';
-import { CurrentUser } from 'src/shared/decorators/current-user.decorators';
-import { AuthorizeRoles } from 'src/shared/decorators/authorize-roles.decorator';
-import { UserRoles } from 'src/shared/common/user-roles.enum';
-import { AuthorizeGuard } from 'src/shared/guards/authorization.guard';
-import { QueryDto } from 'src/shared/dto/query.dto';
+import { AuthGuard } from '../../shared/guards/auth.guard';
+import { FormDataTransformPipe } from '../../shared/pipes/formdata-transform.pipe';
+import { CurrentUser } from '../../shared/decorators/current-user.decorators';
+import { AuthorizeRoles } from '../../shared/decorators/authorize-roles.decorator';
+import { UserRoles } from '../../shared/common/user-roles.enum';
+import { AuthorizeGuard } from '../../shared/guards/authorization.guard';
+import { QueryDto } from '../../shared/dto/query.dto';
 @ApiTags('Adresse Facturations')
 @ApiBearerAuth()
 @Controller('adresse-facturations')

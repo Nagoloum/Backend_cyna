@@ -4,11 +4,11 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { isValidObjectId, Model, Types } from 'mongoose';
 import { User } from './entities/user.entity';
 import { InjectModel } from '@nestjs/mongoose';
-import { ApiResponse } from 'src/shared/responses/api-response';
+import { ApiResponse } from '../../shared/responses/api-response';
 import * as bcrypt from 'bcrypt';
 import { Type } from 'class-transformer';
 import { ChangePasswordProfilDto } from './dto/create-user.dto';
-import { SharedService } from 'src/shared/services/shared.service';
+import { SharedService } from '../../shared/services/shared.service';
 
 @Injectable()
 export class UsersService {
