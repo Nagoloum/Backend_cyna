@@ -191,7 +191,7 @@ export class CarteBancairesService {
         return ApiResponse.error('Carte bancaire non trouvee');
       }
       // --- 2) Autorisations ---
-      const isAdmin = UserRoles.ADMIN.includes(currentUser?.data?.role);
+      const isAdmin = currentUser?.data?.role === UserRoles.ADMIN;
       const isOwner = carteBancaire?.user?.equals(currentUser?.data?._id);
 
       if (!isOwner && !isAdmin) {
@@ -256,7 +256,7 @@ export class CarteBancairesService {
         return ApiResponse.error('Carte bancaire non trouvee');
       }
       // --- 2) Autorisations ---
-      const isAdmin = UserRoles.ADMIN.includes(currentUser?.data?.role);
+      const isAdmin = currentUser?.data?.role === UserRoles.ADMIN;
       const isOwner = carteBancaire?.user?.equals(currentUser?.data?._id);
 
       if (!isOwner && !isAdmin) {
@@ -265,8 +265,16 @@ export class CarteBancairesService {
         );
       }
 
+      // Un seul moyen de paiement par défaut : on retire le flag des autres cartes.
+      if (updateCarteBancaireDto.isDefault) {
+        await this.carteBancaireModel.updateMany(
+          { user: carteBancaire.user, _id: { $ne: new Types.ObjectId(id) } },
+          { $set: { isDefault: false } },
+        );
+      }
+
       return ApiResponse.success(
-        'Adresse de facturation mise a jour avec success',
+        'Carte bancaire mise a jour avec success',
         await this.carteBancaireModel.findByIdAndUpdate(id, {
           $set: updateCarteBancaireDto,
         }),
@@ -293,7 +301,7 @@ export class CarteBancairesService {
         return ApiResponse.error('carte bancaire non trouvee');
       }
       // --- 2) Autorisations ---
-      const isAdmin = UserRoles.ADMIN.includes(currentUser?.data?.role);
+      const isAdmin = currentUser?.data?.role === UserRoles.ADMIN;
       const isOwner = carteBancaire?.user?.equals(currentUser?.data?._id);
 
       if (!isOwner && !isAdmin) {

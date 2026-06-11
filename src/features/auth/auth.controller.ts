@@ -16,6 +16,7 @@ import { AuthGuard } from 'src/shared/guards/auth.guard';
 import { User } from '../users/entities/user.entity';
 import { FormDataTransformPipe } from 'src/shared/pipes/formdata-transform.pipe';
 import { NoFilesInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
 
 @ApiTags('Auth')
 @ApiBearerAuth()
@@ -24,11 +25,15 @@ import { NoFilesInterceptor } from '@nestjs/platform-express';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  // Anti brute-force : 5 tentatives de connexion par minute et par IP.
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('login')
   @UseInterceptors(NoFilesInterceptor())
   login(@Body(FormDataTransformPipe, ValidationPipe) loginDto: LoginDto) {
     return this.authService.login(loginDto);
   }
+  // Anti brute-force du code 2FA (6 chiffres) : 5 essais/minute.
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('check-code')
   @ApiBody({
     schema: {
@@ -48,6 +53,43 @@ export class AuthController {
   verify2FA(@Body('code') code: string) {
     return this.authService.verifyCode2FA(code);
   }
+
+  // ── 2FA management (utilisateur connecté) ──
+  @UseGuards(AuthGuard)
+  @Post('2fa/totp/init')
+  setupTotp(@CurrentUser() currentUser: any) {
+    return this.authService.setupTotp(currentUser);
+  }
+
+  @UseGuards(AuthGuard)
+  @Post('2fa/totp/activate')
+  activateTotp(@Body('code') code: string, @CurrentUser() currentUser: any) {
+    return this.authService.activateTotp(code, currentUser);
+  }
+
+  @UseGuards(AuthGuard)
+  @Post('2fa/email/activate')
+  activateEmail2FA(@CurrentUser() currentUser: any) {
+    return this.authService.activateEmail2FA(currentUser);
+  }
+
+  @UseGuards(AuthGuard)
+  @Post('2fa/disable')
+  disable2FA(
+    @Body('password') password: string,
+    @CurrentUser() currentUser: any,
+  ) {
+    return this.authService.disable2FA(password, currentUser);
+  }
+
+  // Étape 2FA de connexion pour la méthode TOTP (l'utilisateur a déjà un token).
+  @UseGuards(AuthGuard)
+  @Post('2fa/totp/verify')
+  verifyTotpLogin(@Body('code') code: string, @CurrentUser() currentUser: any) {
+    return this.authService.verifyTotpLogin(code, currentUser);
+  }
+
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('register')
   @UseInterceptors(NoFilesInterceptor())
   register(
@@ -65,6 +107,8 @@ export class AuthController {
     return currentUser;
   }
   // reset de mot de passe de l'utlisateur
+  // Anti email-bombing : 3 demandes de reset par minute et par IP.
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
   @Post('forgot-password')
   @ApiBody({
     schema: {
@@ -81,6 +125,7 @@ export class AuthController {
   ) {
     return this.authService.forgotPassword(email);
   }
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('change-password')
   @ApiBody({
     schema: {

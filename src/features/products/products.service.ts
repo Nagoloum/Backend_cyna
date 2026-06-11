@@ -1,3 +1,4 @@
+import { escapeRegex } from 'src/shared/generic/escape-regex';
 import { Injectable } from '@nestjs/common';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -102,7 +103,7 @@ export class ProductsService {
         }
       }
 
-      console.error(error);
+      console.error(error instanceof Error ? error.message : error);
       return ApiResponse.error('Erreur lors de la création du produit');
     }
   }
@@ -138,8 +139,8 @@ export class ProductsService {
 
       if (search) {
         whereQuery.$or = [
-          { name: { $regex: search, $options: 'i' } },
-          { slug: { $regex: search, $options: 'i' } },
+          { name: { $regex: escapeRegex(search), $options: 'i' } },
+          { slug: { $regex: escapeRegex(search), $options: 'i' } },
         ];
       }
 
@@ -273,7 +274,7 @@ export class ProductsService {
       }
 
       // 2. Préparer les nouvelles images. Par défaut on garde toutes les images
-      // existantes — une mise à jour SANS upload ne doit pas vider le tableau.
+      // existantes une mise à jour SANS upload ne doit pas vider le tableau.
       let finalImages: ImageDto[] = (existingProduct.images ?? []).map(
         (img) => ({
           url: img.url,
@@ -353,7 +354,7 @@ export class ProductsService {
         : existingProduct.slug;
 
       // 4. Mise à jour finale. On ne touche au champ `images` que si l'utilisateur
-      // a explicitement envoyé de nouveaux fichiers — sinon on conserve les images
+      // a explicitement envoyé de nouveaux fichiers sinon on conserve les images
       // déjà en base. On retire systématiquement la clé `images` qui peut être
       // présente à `undefined` dans le DTO (et qui écraserait le tableau Mongo).
       const updatePayload: any = {
@@ -380,7 +381,7 @@ export class ProductsService {
       for (const fullPath of newSavedFiles) {
         if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
       }
-      console.error(error);
+      console.error(error instanceof Error ? error.message : error);
       return ApiResponse.error('Erreur lors de la mise à jour du produit');
     }
   }
@@ -416,7 +417,7 @@ export class ProductsService {
 
       return ApiResponse.success('Produit et ses images supprimés avec succès');
     } catch (error) {
-      console.error(error);
+      console.error(error instanceof Error ? error.message : error);
       return ApiResponse.error('Erreur lors de la suppression du produit');
     }
   }

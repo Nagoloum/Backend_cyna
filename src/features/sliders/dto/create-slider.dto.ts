@@ -13,6 +13,7 @@ export class CreateSliderDto {
     description: 'Image uniquement (JPG, PNG, WebP), max 2Mo',
     required: true,
   })
+  @IsOptional()
   newImage!: string;
 
   @IsString()

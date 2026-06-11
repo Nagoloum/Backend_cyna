@@ -1,8 +1,8 @@
 import {
   CanActivate,
   ExecutionContext,
+  ForbiddenException,
   Injectable,
-  UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 
@@ -18,12 +18,14 @@ export class AuthorizeGuard implements CanActivate {
 
     const request = context.switchToHttp().getRequest();
 
-    const result = allowedRoles?.some((role) =>
-      request?.currentUser?.data?.role?.includes(role),
+    // Égalité stricte : `.includes()` sur une string accepterait des
+    // sous-chaînes (ex. un rôle "ADMIN_READONLY" passerait pour "ADMIN").
+    const result = allowedRoles?.some(
+      (role) => request?.currentUser?.data?.role === role,
     );
 
     if (result) return true;
-    throw new UnauthorizedException(
+    throw new ForbiddenException(
       "Vous n'êtes pas autorisé à accéder à cette ressource.",
     );
   }

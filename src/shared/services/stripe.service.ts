@@ -18,6 +18,8 @@ type SavedCardPaymentInput = {
   customerId: string;
   paymentMethodId: string;
   orderId: string;
+  idempotencyKey?: string;
+  metadata?: Record<string, string>;
 };
 
 type CreateCustomerInput = {
@@ -130,6 +132,8 @@ export class StripeService {
     customerId,
     paymentMethodId,
     orderId,
+    idempotencyKey,
+    metadata,
   }: SavedCardPaymentInput) {
     return await this.stripe.paymentIntents.create(
       {
@@ -139,10 +143,10 @@ export class StripeService {
         payment_method: paymentMethodId,
         payment_method_types: ['card'],
         confirm: true,
-        metadata: { orderId },
+        metadata: { orderId, ...(metadata ?? {}) },
       },
       {
-        idempotencyKey: `order-payment-${orderId}`,
+        idempotencyKey: idempotencyKey ?? `order-payment-${orderId}`,
       },
     );
   }

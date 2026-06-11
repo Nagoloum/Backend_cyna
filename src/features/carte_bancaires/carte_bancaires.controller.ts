@@ -55,6 +55,7 @@ export class CarteBancairesController {
   findDefault(@Param('id') id: string, @CurrentUser() currentUser: any) {
     return this.carteBancairesService.findDefault(id, currentUser);
   }
+  @UseGuards(AuthGuard)
   @Get(':id')
   findOne(@Param('id') id: string, @CurrentUser() currentUser: any) {
     return this.carteBancairesService.findOne(id, currentUser);

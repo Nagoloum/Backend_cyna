@@ -16,13 +16,12 @@ import {
 import { SlidersService } from './sliders.service';
 import { CreateSliderDto } from './dto/create-slider.dto';
 import { UpdateSliderDto } from './dto/update-slider.dto';
-import { ApiConsumes } from '@nestjs/swagger/dist/decorators/api-consumes.decorator';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { UserRoles } from 'src/shared/common/user-roles.enum';
 import { AuthGuard } from 'src/shared/guards/auth.guard';
 import { AuthorizeGuard } from 'src/shared/guards/authorization.guard';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import { AuthorizeRoles } from 'src/shared/decorators/authorize-roles.decorator';
 import { FormDataTransformPipe } from 'src/shared/pipes/formdata-transform.pipe';
 

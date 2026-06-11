@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 
 import { config } from 'dotenv';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { MongooseModule } from '@nestjs/mongoose';
 import { UsersModule } from './features/users/users.module';
 import { AuthModule } from './features/auth/auth.module';
@@ -17,6 +19,10 @@ import { CommandesModule } from './features/commandes/commandes.module';
 config();
 @Module({
   imports: [
+    // Rate limiting global : 100 requêtes/min par IP. Des limites plus
+    // strictes sont posées avec @Throttle sur les endpoints sensibles
+    // (login, register, forgot-password, 2FA, contact).
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
     MongooseModule.forRoot(`${process.env.DATABASE_URL}`),
     UsersModule,
     AuthModule,
@@ -31,6 +37,6 @@ config();
     CommandesModule,
   ],
   controllers: [],
-  providers: [],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}

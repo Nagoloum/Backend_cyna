@@ -49,10 +49,12 @@ export class CommandesController {
     );
   }
 
-  // Endpoint pour confirmer le paiement
-
+  // Endpoint pour confirmer le paiement (appelé par le frontend authentifié,
+  // la vérification de propriété est faite dans le service).
+  @UseGuards(AuthGuard)
   @Get('payment/success')
   paymentSuccess(
+    @CurrentUser() currentUser: any,
     @Query('orderId') orderId?: string,
     @Query('session_id') sessionId?: string,
     @Query('payment_intent') paymentIntentId?: string,
@@ -61,10 +63,12 @@ export class CommandesController {
       orderId,
       sessionId,
       paymentIntentId,
+      currentUser,
     );
   }
 
   // Endpoint pour gérer l'annulation du paiement
+  @UseGuards(AuthGuard)
   @Get('payment/cancel')
   paymentCancel(@Query('orderId') orderId?: string) {
     return ApiResponse.error('Paiement annulé');
@@ -108,9 +112,42 @@ export class CommandesController {
     return this.commandesService.resilierAbonnementsByUser(id, currentUser);
   }
 
+  // Modifier un abonnement (quantité / période) — recalcul, sans paiement.
+  @UseGuards(AuthGuard)
+  @Patch('abonnement/:id')
+  updateAbonnement(
+    @Param('id') id: string,
+    @Body() body: any,
+    @CurrentUser() currentUser: any,
+  ) {
+    return this.commandesService.updateAbonnement(id, body, currentUser);
+  }
+
+  // Renouveler un abonnement — débit off-session de la carte enregistrée.
+  @UseGuards(AuthGuard)
+  @Post('abonnement/renouveler/:id')
+  renouvelerAbonnement(@Param('id') id: string, @CurrentUser() currentUser: any) {
+    return this.commandesService.renouvelerAbonnement(id, currentUser);
+  }
+
+  // Finaliser un renouvellement après authentification 3-D Secure.
+  @UseGuards(AuthGuard)
+  @Post('abonnement/renouveler/:id/confirm')
+  confirmRenouvellement(
+    @Param('id') id: string,
+    @Body() body: any,
+    @CurrentUser() currentUser: any,
+  ) {
+    return this.commandesService.confirmRenouvellement(
+      id,
+      body?.paymentIntentId,
+      currentUser,
+    );
+  }
+
   @UseGuards(AuthGuard)
   @Patch(':id')
-  cancel(@Param('id') id: string) {
-    return this.commandesService.cancel(id);
+  cancel(@Param('id') id: string, @CurrentUser() currentUser: any) {
+    return this.commandesService.cancel(id, currentUser);
   }
 }
