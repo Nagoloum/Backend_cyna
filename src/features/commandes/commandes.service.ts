@@ -1,3 +1,4 @@
+import { escapeRegex } from 'src/shared/generic/escape-regex';
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { isValidObjectId, Model, Types } from 'mongoose';
@@ -274,8 +275,8 @@ export class CommandesService {
 
       if (search) {
         whereQuery.$or = [
-          { reference: { $regex: search, $options: 'i' } },
-          { statut: { $regex: search, $options: 'i' } },
+          { reference: { $regex: escapeRegex(search), $options: 'i' } },
+          { statut: { $regex: escapeRegex(search), $options: 'i' } },
           { totalPrice: Number(search) || -1 },
           { nbreProducts: Number(search) || -1 },
         ];
@@ -387,9 +388,9 @@ export class CommandesService {
 
       if (search) {
         matchConditions.$or = [
-          { createdAtStr: { $regex: search, $options: 'i' } },
-          // { 'productDetails.name': { $regex: search, $options: 'i' } },
-          { statut: { $regex: search, $options: 'i' } },
+          { createdAtStr: { $regex: escapeRegex(search), $options: 'i' } },
+          // { 'productDetails.name': { $regex: escapeRegex(search), $options: 'i' } },
+          { statut: { $regex: escapeRegex(search), $options: 'i' } },
         ];
       }
 
@@ -450,7 +451,7 @@ export class CommandesService {
         totalPage: Math.ceil(total / limitNumber),
       });
     } catch (error) {
-      console.error(error);
+      console.error(error instanceof Error ? error.message : error);
       return ApiResponse.error('Erreur lors de la récupération des commandes');
     }
   }
@@ -523,10 +524,27 @@ export class CommandesService {
     orderId?: string,
     sessionId?: string,
     paymentIntentId?: string,
+    currentUser?: any,
   ) {
     try {
       if (!orderId) {
         return ApiResponse.error("L'identifiant de commande est obligatoire");
+      }
+
+      // La confirmation est réservée au propriétaire de la commande (ou admin).
+      if (currentUser !== undefined) {
+        if (!isValidObjectId(orderId)) {
+          return ApiResponse.error("L'identifiant de commande est invalide");
+        }
+        const owned = await this.commandeModel.findById(orderId, 'user').exec();
+        if (!owned) {
+          return ApiResponse.error('Commande introuvable');
+        }
+        const isAdmin = currentUser?.data?.role === 'ADMIN';
+        const isOwner = owned.user?.equals(currentUser?.data?._id);
+        if (!isOwner && !isAdmin) {
+          return ApiResponse.error('Accès refusé');
+        }
       }
 
       if (paymentIntentId) {
@@ -613,37 +631,24 @@ export class CommandesService {
         return ApiResponse.error('Utilisateur non authentifié');
       }
 
-      // 1. Utilisez .lean() pour obtenir des objets JS simples
       const commandes = await this.commandeModel
-        .find({ user: new Types.ObjectId(userId) }, 'abonnements')
+        .find({ user: new Types.ObjectId(userId) }, 'abonnements reference')
         .populate({
           path: 'abonnements.product',
-          select: 'name slug images',
+          select: 'name slug images priceMonth priceYear',
         })
-        .lean() // Très important ici
+        .sort({ createdAt: -1 })
+        .lean()
         .exec();
 
-      // 2. Le mapping devient beaucoup plus simple
+      // On renvoie les dates brutes (ISO) : le frontend les formate et calcule
+      // la progression / les jours restants, et a besoin des prix produit pour
+      // l'aperçu lors d'une modification.
       const flattenedAbonnements = commandes.flatMap((commande) =>
-        commande.abonnements.map((abonnement) => {
-          // Création d'un formateur de date
-          const formatter = new Intl.DateTimeFormat('fr-FR', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-          });
-
-          return {
-            ...abonnement,
-            // On formate les dates si elles existent
-            dateDebut: abonnement.dateDebut
-              ? formatter.format(new Date(abonnement.dateDebut))
-              : null,
-            dateFin: abonnement.dateFin
-              ? formatter.format(new Date(abonnement.dateFin))
-              : null,
-          };
-        }),
+        (commande.abonnements ?? []).map((abonnement) => ({
+          ...abonnement,
+          commandeReference: commande.reference,
+        })),
       );
 
       return ApiResponse.success(
@@ -651,7 +656,7 @@ export class CommandesService {
         flattenedAbonnements,
       );
     } catch (error) {
-      console.error(error);
+      console.error(error instanceof Error ? error.message : error);
       return ApiResponse.error(
         "Erreur lors de la récupération des abonnements de l'utilisateur",
       );
@@ -695,10 +700,248 @@ export class CommandesService {
     }
   }
 
-  async cancel(id: string) {
+  // Modifier un abonnement : quantité et/ou période. Le prix et la date de fin
+  // sont recalculés à partir du produit. Aucun paiement n'est déclenché.
+  async updateAbonnement(id: string, dto: any, currentUser: any) {
+    try {
+      if (!isValidObjectId(id)) {
+        return ApiResponse.error("L'id de l'abonnement est invalide");
+      }
+      const userId = currentUser?.data?._id;
+
+      const commande = await this.commandeModel.findOne({
+        abonnements: { $elemMatch: { _id: new Types.ObjectId(id) } },
+        user: new Types.ObjectId(userId),
+      });
+
+      if (!commande) {
+        return ApiResponse.error('Abonnement introuvable pour cet utilisateur');
+      }
+
+      const abonnement = commande.abonnements.find((a) => a._id.equals(id));
+      if (!abonnement) {
+        return ApiResponse.error('Abonnement introuvable dans la commande');
+      }
+      if (abonnement.statut === StatutAbonnement.CANCELED) {
+        return ApiResponse.error('Impossible de modifier un abonnement résilié');
+      }
+
+      const quantity =
+        dto?.quantity !== undefined ? Number(dto.quantity) : abonnement.quantity;
+      if (!Number.isFinite(quantity) || quantity <= 0) {
+        return ApiResponse.error('La quantité doit être supérieure à 0');
+      }
+
+      const periode = dto?.periode ?? abonnement.periode;
+      if (
+        periode !== PeriodeAbonnement.MENSUEL &&
+        periode !== PeriodeAbonnement.ANNUEL
+      ) {
+        return ApiResponse.error('Période invalide');
+      }
+
+      const product = await this.productModel.findById(
+        abonnement.product,
+        '_id priceMonth priceYear',
+      );
+      if (!product) {
+        return ApiResponse.error('Produit introuvable');
+      }
+
+      const unitPrice =
+        periode === PeriodeAbonnement.ANNUEL
+          ? Number(product.priceYear ?? 0)
+          : Number(product.priceMonth ?? 0);
+
+      abonnement.quantity = quantity;
+      abonnement.periode = periode;
+      abonnement.price = unitPrice * quantity;
+      abonnement.dateFin = this.addPeriod(
+        new Date(abonnement.dateDebut),
+        periode,
+      ).toISOString();
+
+      // Totaux de la commande recalculés pour rester cohérents.
+      commande.totalPrice = commande.abonnements.reduce(
+        (s, a) => s + Number(a.price ?? 0),
+        0,
+      );
+      commande.nbreProducts = commande.abonnements.reduce(
+        (s, a) => s + Number(a.quantity ?? 0),
+        0,
+      );
+      commande.periode = commande.abonnements[0].periode;
+
+      await commande.save();
+
+      return ApiResponse.success('Abonnement mis à jour avec succès', abonnement);
+    } catch (error) {
+      return ApiResponse.error("Erreur lors de la mise à jour de l'abonnement");
+    }
+  }
+
+  // Renouveler un abonnement : débit off-session de la carte (par défaut, sinon
+  // celle de la commande), puis prolongation de la date de fin + réactivation.
+  async renouvelerAbonnement(id: string, currentUser: any) {
+    try {
+      if (!isValidObjectId(id)) {
+        return ApiResponse.error("L'id de l'abonnement est invalide");
+      }
+      const userId = currentUser?.data?._id;
+
+      const commande = await this.commandeModel.findOne({
+        abonnements: { $elemMatch: { _id: new Types.ObjectId(id) } },
+        user: new Types.ObjectId(userId),
+      });
+      if (!commande) {
+        return ApiResponse.error('Abonnement introuvable pour cet utilisateur');
+      }
+      const abonnement = commande.abonnements.find((a) => a._id.equals(id));
+      if (!abonnement) {
+        return ApiResponse.error('Abonnement introuvable dans la commande');
+      }
+
+      let carte = await this.carteBancaireModel.findOne(
+        { user: new Types.ObjectId(userId), isDefault: true },
+        'stripePaymentMethodId stripeCustomerId',
+      );
+      if (!carte) {
+        carte = await this.carteBancaireModel.findById(
+          commande.cb,
+          'stripePaymentMethodId stripeCustomerId',
+        );
+      }
+      if (!carte?.stripePaymentMethodId || !carte?.stripeCustomerId) {
+        return ApiResponse.error(
+          'Aucune carte Stripe disponible pour le renouvellement',
+        );
+      }
+
+      const amount = this.toStripeAmount(abonnement.price);
+      if (amount <= 0) {
+        return ApiResponse.error('Le montant du renouvellement est invalide');
+      }
+
+      const commandeId =
+        this.extractId(commande._id) ?? commande?._id?.toString?.();
+
+      const paymentIntent =
+        await this.stripeService.createPaymentIntentWithSavedCard({
+          amount,
+          customerId: carte.stripeCustomerId,
+          paymentMethodId: carte.stripePaymentMethodId,
+          orderId: commandeId as string,
+          idempotencyKey: `renew-${id}-${amount}-${abonnement.dateFin}`,
+          metadata: { type: 'renew', abonnementId: id },
+        });
+
+      if (paymentIntent.status === 'succeeded') {
+        this.extendAbonnement(abonnement);
+        await commande.save();
+        return ApiResponse.success('Abonnement renouvelé avec succès', {
+          status: 'PAID',
+          abonnementId: id,
+          paymentIntentId: paymentIntent.id,
+          abonnement,
+        });
+      }
+
+      if (
+        paymentIntent.status === 'requires_action' ||
+        paymentIntent.status === 'requires_confirmation'
+      ) {
+        return ApiResponse.success('Authentification Stripe requise', {
+          status: 'REQUIRES_ACTION',
+          abonnementId: id,
+          paymentIntentId: paymentIntent.id,
+          clientSecret: paymentIntent.client_secret,
+        });
+      }
+
+      return ApiResponse.error(
+        "Le paiement du renouvellement n'a pas pu être finalisé",
+        { status: 'PENDING', abonnementId: id, paymentIntentId: paymentIntent.id },
+      );
+    } catch (error) {
+      return ApiResponse.error(
+        "Erreur lors du renouvellement de l'abonnement",
+        error,
+      );
+    }
+  }
+
+  // Finalise un renouvellement après authentification 3-D Secure côté frontend.
+  async confirmRenouvellement(
+    id: string,
+    paymentIntentId: string,
+    currentUser: any,
+  ) {
+    try {
+      if (!isValidObjectId(id)) {
+        return ApiResponse.error("L'id de l'abonnement est invalide");
+      }
+      if (!paymentIntentId) {
+        return ApiResponse.error('PaymentIntent manquant');
+      }
+      const userId = currentUser?.data?._id;
+
+      const commande = await this.commandeModel.findOne({
+        abonnements: { $elemMatch: { _id: new Types.ObjectId(id) } },
+        user: new Types.ObjectId(userId),
+      });
+      if (!commande) {
+        return ApiResponse.error('Abonnement introuvable pour cet utilisateur');
+      }
+      const abonnement = commande.abonnements.find((a) => a._id.equals(id));
+      if (!abonnement) {
+        return ApiResponse.error('Abonnement introuvable dans la commande');
+      }
+
+      const paymentIntent =
+        await this.stripeService.retrievePaymentIntent(paymentIntentId);
+
+      if (paymentIntent.metadata?.abonnementId !== id) {
+        return ApiResponse.error(
+          'Le paiement ne correspond pas à cet abonnement',
+        );
+      }
+      if (paymentIntent.status !== 'succeeded') {
+        return ApiResponse.success('Paiement non finalisé', {
+          status: 'PENDING',
+          abonnementId: id,
+        });
+      }
+
+      this.extendAbonnement(abonnement);
+      await commande.save();
+
+      return ApiResponse.success('Abonnement renouvelé avec succès', {
+        status: 'PAID',
+        abonnementId: id,
+        abonnement,
+      });
+    } catch (error) {
+      return ApiResponse.error(
+        'Erreur lors de la confirmation du renouvellement',
+      );
+    }
+  }
+
+  async cancel(id: string, currentUser?: any) {
     try {
       if (!isValidObjectId(id)) {
         return ApiResponse.error("L'id de la commande est invalide");
+      }
+
+      // Seul le propriétaire de la commande (ou un admin) peut l'annuler.
+      const commande = await this.commandeModel.findById(id, 'user').exec();
+      if (!commande) {
+        return ApiResponse.error('Commande introuvable');
+      }
+      const isAdmin = currentUser?.data?.role === 'ADMIN';
+      const isOwner = commande.user?.equals(currentUser?.data?._id);
+      if (!isOwner && !isAdmin) {
+        return ApiResponse.error('Accès refusé');
       }
 
       const cancelledCommande = await this.commandeModel
@@ -722,7 +965,6 @@ export class CommandesService {
     } catch (error) {
       return ApiResponse.error(
         'Erreur lors de lannulation de la commande',
-        error,
       );
     }
   }
@@ -747,6 +989,31 @@ export class CommandesService {
 
     endDate.setMonth(endDate.getMonth() + 1);
     return endDate;
+  }
+
+  // Ajoute une période (mois/année) à une date donnée.
+  private addPeriod(date: Date, periode: PeriodeAbonnement) {
+    const d = new Date(date);
+    if (Number.isNaN(d.getTime())) {
+      return this.computeEndDate(periode);
+    }
+    if (periode === PeriodeAbonnement.ANNUEL) {
+      d.setFullYear(d.getFullYear() + 1);
+    } else {
+      d.setMonth(d.getMonth() + 1);
+    }
+    return d;
+  }
+
+  // Prolonge un abonnement d'une période (à partir de sa fin si encore valide,
+  // sinon à partir d'aujourd'hui) et le réactive.
+  private extendAbonnement(abonnement: any) {
+    const now = new Date();
+    const currentEnd = new Date(abonnement.dateFin);
+    const base =
+      !Number.isNaN(currentEnd.getTime()) && currentEnd > now ? currentEnd : now;
+    abonnement.dateFin = this.addPeriod(base, abonnement.periode).toISOString();
+    abonnement.statut = StatutAbonnement.ACTIVE;
   }
 
   private async buildStripeLineItems(createCommandeDto: CreateCommandeDto) {

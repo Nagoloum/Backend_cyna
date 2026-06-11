@@ -1,5 +1,5 @@
 // pagination.dto.ts
-import { IsIn, IsOptional, IsPositive, IsString } from 'class-validator';
+import { IsIn, IsOptional, IsPositive, IsString, Max } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiPropertyOptional, ApiSchema } from '@nestjs/swagger';
 @ApiSchema({ description: 'Description of the CreateCatDto schema' })
@@ -7,6 +7,7 @@ export class QueryDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsPositive()
+  @Max(1000)
   @Type(() => Number)
   limit = 10;
 

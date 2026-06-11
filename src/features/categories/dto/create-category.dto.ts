@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional, ApiSchema } from '@nestjs/swagger';
-import { IsEmpty, IsNotEmpty, IsString } from 'class-validator';
+import { IsEmpty, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 @ApiSchema({ description: 'Data Transfer Object pour créer une catégorie' })
 export class CreateCategoryDto {
@@ -13,9 +13,11 @@ export class CreateCategoryDto {
     description: 'Image uniquement (JPG, PNG, WebP), max 2Mo',
     required: true,
   })
+  @IsOptional()
   newImage!: string;
 
   @ApiPropertyOptional()
+  @IsOptional()
   description!: string;
 
   @ApiProperty()

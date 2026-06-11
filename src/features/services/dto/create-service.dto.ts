@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional, ApiSchema } from '@nestjs/swagger';
-import { IsNotEmpty, IsString } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 @ApiSchema({ description: 'Data Transfer Object pour créer un service' })
 export class CreateServiceDto {
@@ -8,12 +8,15 @@ export class CreateServiceDto {
   name: string;
 
   @ApiPropertyOptional()
+  @IsOptional()
   TechFile: string;
 
   @ApiPropertyOptional()
+  @IsOptional()
   description: string;
 
   @ApiPropertyOptional()
+  @IsOptional()
   available: boolean;
 
   @ApiProperty()

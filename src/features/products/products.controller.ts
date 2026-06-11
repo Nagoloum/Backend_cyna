@@ -39,6 +39,8 @@ export class ProductsController {
   @UseInterceptors(
     FilesInterceptor('images', 10, {
       storage: memoryStorage(),
+      // 5 Mo max par image : evite l'epuisement memoire (memoryStorage).
+      limits: { fileSize: 5 * 1024 * 1024 },
       fileFilter: (req, file, cb) => {
         if (!file.mimetype.match(/\/(jpg|jpeg|png|webp)$/)) {
           return cb(new BadRequestException('Format non supporté'), false);
@@ -86,6 +88,8 @@ export class ProductsController {
   @UseInterceptors(
     FilesInterceptor('images', 10, {
       storage: memoryStorage(),
+      // 5 Mo max par image : evite l'epuisement memoire (memoryStorage).
+      limits: { fileSize: 5 * 1024 * 1024 },
       fileFilter: (req, file, cb) => {
         if (!file.mimetype.match(/\/(jpg|jpeg|png|webp)$/)) {
           return cb(new BadRequestException('Format non supporté'), false);

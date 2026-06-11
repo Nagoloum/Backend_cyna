@@ -1,3 +1,4 @@
+import { escapeRegex } from 'src/shared/generic/escape-regex';
 import { Injectable } from '@nestjs/common';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
@@ -108,8 +109,8 @@ export class CategoriesService {
 
       if (search) {
         whereQuery.$or = [
-          { name: { $regex: search, $options: 'i' } },
-          { slug: { $regex: search, $options: 'i' } },
+          { name: { $regex: escapeRegex(search), $options: 'i' } },
+          { slug: { $regex: escapeRegex(search), $options: 'i' } },
         ];
       }
 
@@ -310,7 +311,7 @@ export class CategoriesService {
         if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
       }
 
-      console.error(error);
+      console.error(error instanceof Error ? error.message : error);
       return ApiResponse.error('Erreur lors de la mise à jour');
     }
   }
@@ -345,7 +346,7 @@ export class CategoriesService {
 
       return ApiResponse.success('Catégorie supprimée avec succès');
     } catch (error) {
-      console.error(error);
+      console.error(error instanceof Error ? error.message : error);
       return ApiResponse.error('Erreur lors de la suppression de la catégorie');
     }
   }

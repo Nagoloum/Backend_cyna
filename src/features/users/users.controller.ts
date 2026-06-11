@@ -34,9 +34,11 @@ export class UsersController {
     return this.usersService.findAll();
   }
 
+  // Profil accessible uniquement par son propriétaire ou un admin.
+  @UseGuards(AuthGuard)
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.usersService.findOne(id);
+  findOne(@Param('id') id: string, @CurrentUser() currentUser: any) {
+    return this.usersService.findOne(id, currentUser);
   }
   @UseGuards(AuthGuard)
   @Patch('profil/change-password')
@@ -61,7 +63,7 @@ export class UsersController {
 
   @UseGuards(AuthGuard)
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.usersService.remove(id);
+  remove(@Param('id') id: string, @CurrentUser() currentUser: any) {
+    return this.usersService.remove(id, currentUser);
   }
 }

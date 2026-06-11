@@ -33,18 +33,27 @@ export class UsersService {
     }
   }
 
-  async findOne(id: string) {
+  // `requester` est optionnel car l'AuthGuard utilise aussi findOne pour
+  // charger l'utilisateur du token (sans contexte de requérant).
+  async findOne(id: string, requester?: any) {
     try {
+      if (requester !== undefined) {
+        const isAdmin = requester?.data?.role === 'ADMIN';
+        const isOwner = requester?.data?._id?.toString() === id;
+        if (!isOwner && !isAdmin) {
+          return ApiResponse.error('Accès refusé');
+        }
+      }
       const user = await this.userModel
         .findById(id)
-        .select('-password -verification')
+        .select('-password -verification -twoFactorSecret')
         .exec();
       if (!user) {
         return ApiResponse.error('Utilisateur introuvable');
       }
       return ApiResponse.success('Utilisateur trouvé avec succès', user);
     } catch (_error) {
-      return ApiResponse.error('ID invalide ou erreur de connexion');
+      return ApiResponse.error('Une erreur est survenue');
     }
   }
 
@@ -60,8 +69,9 @@ export class UsersService {
       }
 
       // --- 2) Autorisations ---
-      const isAdmin = currentUser?.data?.roles?.includes('ADMIN');
-      const isOwner = user.id === currentUser?.data?.id?.toString();
+      // Le payload JWT expose `role` (singulier) : comparaison stricte.
+      const isAdmin = currentUser?.data?.role === 'ADMIN';
+      const isOwner = user.id === currentUser?.data?._id?.toString();
       if (!isOwner && !isAdmin) {
         return ApiResponse.error(
           'Vous ne pouvais pas modifier cet utilisateur',
@@ -138,15 +148,21 @@ export class UsersService {
     }
   }
 
-  async remove(id: string) {
+  async remove(id: string, currentUser?: any) {
     try {
+      // Seul le propriétaire du compte ou un admin peut le supprimer.
+      const isAdmin = currentUser?.data?.role === 'ADMIN';
+      const isOwner = currentUser?.data?._id?.toString() === id;
+      if (!isOwner && !isAdmin) {
+        return ApiResponse.error('Accès refusé');
+      }
       const deletedUser = await this.userModel.findByIdAndDelete(id).exec();
       if (!deletedUser) {
         return ApiResponse.error('Utilisateur introuvable');
       }
       return ApiResponse.success('Utilisateur supprimé avec succès');
     } catch (_error) {
-      return ApiResponse.error('Erreur lors de la suppression : ');
+      return ApiResponse.error('Erreur lors de la suppression');
     }
   }
 }

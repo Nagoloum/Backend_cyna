@@ -21,6 +21,7 @@ export class CreateCarteBancaireDto {
   @IsString()
   carteCVV?: string;
   @ApiPropertyOptional()
+  @IsOptional()
   isDefault!: boolean;
 
   @ApiPropertyOptional()

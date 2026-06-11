@@ -1,3 +1,4 @@
+import { escapeRegex } from 'src/shared/generic/escape-regex';
 import { Injectable } from '@nestjs/common';
 import { CreateServiceDto } from './dto/create-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
@@ -41,7 +42,7 @@ export class ServicesService {
       return ApiResponse.success('Service crée', savedService);
     } catch (error) {
       return ApiResponse.error(
-        'Erreur lors de la création du service : ' + error.message,
+        'Erreur lors de la création du service',
       );
     }
   }
@@ -55,8 +56,8 @@ export class ServicesService {
 
       if (search) {
         whereQuery.$or = [
-          { name: { $regex: search, $options: 'i' } },
-          { slug: { $regex: search, $options: 'i' } },
+          { name: { $regex: escapeRegex(search), $options: 'i' } },
+          { slug: { $regex: escapeRegex(search), $options: 'i' } },
         ];
       }
 

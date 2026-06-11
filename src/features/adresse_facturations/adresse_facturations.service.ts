@@ -1,3 +1,4 @@
+import { escapeRegex } from 'src/shared/generic/escape-regex';
 import { Injectable } from '@nestjs/common';
 import { CreateAdresseFacturationDto } from './dto/create-adresse_facturation.dto';
 import { UpdateAdresseFacturationDto } from './dto/update-adresse_facturation.dto';
@@ -48,28 +49,34 @@ export class AdresseFacturationsService {
       if (!isValidObjectId(id)) {
         return ApiResponse.error("L'id est invalide");
       }
-      await this.adresseModel.updateMany(
-        { user: currentUser?.data?._id, _id: { $ne: new Types.ObjectId(id) } },
-        { $set: { defaultAf: false } },
-      );
+      const userId = currentUser?.data?._id;
+
+      // L'adresse ciblée doit appartenir à l'utilisateur.
       const adresseFacturation = await this.adresseModel.findOne({
         _id: new Types.ObjectId(id),
-        user: currentUser?.data?._id,
-        defaultAf: true,
+        user: userId,
       });
 
       if (!adresseFacturation) {
-        return ApiResponse.error(
-          'Adresse de facturation par défaut non trouvée',
-        );
+        return ApiResponse.error('Adresse de facturation non trouvée');
       }
+
+      // Une seule adresse par défaut : on retire le flag des autres, puis on
+      // marque celle-ci comme adresse par défaut. (Le champ est `isDefault`.)
+      await this.adresseModel.updateMany(
+        { user: userId, _id: { $ne: new Types.ObjectId(id) } },
+        { $set: { isDefault: false } },
+      );
+      adresseFacturation.isDefault = true;
+      await adresseFacturation.save();
 
       return ApiResponse.success(
         'Adresse de facturation mise par défaut avec succès',
+        adresseFacturation,
       );
     } catch (error) {
       return ApiResponse.error(
-        "Erreur lors de la récupération de l'adresse de facturation par défaut",
+        "Erreur lors de la mise à jour de l'adresse de facturation par défaut",
       );
     }
   }
@@ -83,10 +90,10 @@ export class AdresseFacturationsService {
 
       if (search) {
         whereQuery.$or = [
-          { adresse: { $regex: search, $options: 'i' } },
-          { city: { $regex: search, $options: 'i' } },
-          { codePostal: { $regex: search, $options: 'i' } },
-          { region: { $regex: search, $options: 'i' } },
+          { adresse: { $regex: escapeRegex(search), $options: 'i' } },
+          { city: { $regex: escapeRegex(search), $options: 'i' } },
+          { codePostal: { $regex: escapeRegex(search), $options: 'i' } },
+          { region: { $regex: escapeRegex(search), $options: 'i' } },
         ];
       }
 
@@ -161,7 +168,7 @@ export class AdresseFacturationsService {
         return ApiResponse.error('Adresse de facturation non trouvee');
       }
       // --- 2) Autorisations ---
-      const isAdmin = UserRoles.ADMIN.includes(currentUser?.data?.role);
+      const isAdmin = currentUser?.data?.role === UserRoles.ADMIN;
       const isOwner = adresseFacturation?.user?.equals(currentUser?.data?._id);
 
       if (!isOwner && !isAdmin) {
@@ -198,7 +205,7 @@ export class AdresseFacturationsService {
         return ApiResponse.error('Adresse de facturation non trouvee');
       }
       // --- 2) Autorisations ---
-      const isAdmin = UserRoles.ADMIN.includes(currentUser?.data?.role);
+      const isAdmin = currentUser?.data?.role === UserRoles.ADMIN;
       const isOwner = adresseFacturation?.user?.equals(currentUser?.data?._id);
 
       if (!isOwner && !isAdmin) {
@@ -234,7 +241,7 @@ export class AdresseFacturationsService {
         return ApiResponse.error('Adresse de facturation non trouvee');
       }
       // --- 2) Autorisations ---
-      const isAdmin = UserRoles.ADMIN.includes(currentUser?.data?.role);
+      const isAdmin = currentUser?.data?.role === UserRoles.ADMIN;
       const isOwner = adresseFacturation?.user?.equals(currentUser?.data?._id);
 
       if (!isOwner && !isAdmin) {

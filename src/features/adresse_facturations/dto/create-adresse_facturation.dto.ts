@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNotEmpty } from 'class-validator';
+import { IsNotEmpty, IsOptional } from 'class-validator';
 export class CreateAdresseFacturationDto {
   @ApiProperty()
   @IsNotEmpty({ message: 'Nom est obligatoire' })
@@ -11,6 +11,7 @@ export class CreateAdresseFacturationDto {
   @IsNotEmpty({ message: 'adresse est obligatoire' })
   adresse!: string;
   @ApiPropertyOptional()
+  @IsOptional()
   complementAdresse!: string;
   @ApiProperty()
   @IsNotEmpty({ message: 'Ville est obligatoire' })
@@ -28,5 +29,6 @@ export class CreateAdresseFacturationDto {
   @IsNotEmpty({ message: 'Numéro de téléphone est obligatoire' })
   phone!: string;
   @ApiPropertyOptional()
+  @IsOptional()
   isDefault!: boolean;
 }

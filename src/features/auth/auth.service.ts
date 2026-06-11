@@ -13,8 +13,14 @@ import { StringValue } from 'ms';
 import { Console } from 'console';
 import { UserRoles } from 'src/shared/common/user-roles.enum';
 import { console } from 'inspector/promises';
+import { authenticator } from 'otplib';
+import * as QRCode from 'qrcode';
+import { TwoFactorMethod } from 'src/shared/common/two-factor-method.enum';
 
 config();
+
+// Tolère ±30s de décalage d'horloge entre le serveur et l'appareil.
+authenticator.options = { window: 1 };
 
 @Injectable()
 export class AuthService {
@@ -31,10 +37,10 @@ export class AuthService {
         .findOne({ email: loginDto.email })
         .exec();
 
+      // Message identique que le compte existe ou non : empêche
+      // l'énumération des adresses e-mail inscrites.
       if (!user) {
-        return ApiResponse.error(
-          "Vous n'avez pas de compte sur notre plateforme, veuillez vous inscrire",
-        );
+        return ApiResponse.error('Adresse e-mail ou mot de passe incorrect');
       }
 
       const matchPassword = await bcrypt.compare(
@@ -43,14 +49,15 @@ export class AuthService {
       );
 
       if (!matchPassword) {
-        return ApiResponse.error('Votre mot de passe est incorrect');
+        return ApiResponse.error('Adresse e-mail ou mot de passe incorrect');
       }
-      if (UserRoles.ADMIN?.includes(user.role)) {
-        //envoie un code d'identifiactions à 6 chiffres:
-        const userEmail = user.email;
+      // 2FA par utilisateur. Pour la méthode EMAIL on envoie un code à 6 chiffres.
+      // Pour TOTP (Google Authenticator) l'utilisateur a déjà son code dans l'app.
+      const twoFactorMethod = user.twoFactorMethod ?? TwoFactorMethod.NONE;
+      if (twoFactorMethod === TwoFactorMethod.EMAIL) {
         const code = this.sharedService.generateSixDigitCode();
         await this.userModel.findOneAndUpdate(
-          { email: userEmail },
+          { email: user.email },
           {
             verification: {
               code,
@@ -58,16 +65,17 @@ export class AuthService {
             },
           },
         );
-        await this.sendEmailService.sendVerificationCode(userEmail, code);
+        await this.sendEmailService.sendVerificationCode(user.email, code);
       }
       const token = this.sharedService.accessToken(user);
       return ApiResponse.success('Connexion réussie', {
         token,
         role: user.role,
+        twoFactorMethod,
       });
     } catch (error: any) {
       return ApiResponse.error(
-        'Une erreur est survenue lors de la connexion ' + error.message,
+        'Une erreur est survenue lors de la connexion',
       );
     }
   }
@@ -81,6 +89,125 @@ export class AuthService {
       return ApiResponse.error('Code de confirmation incorrect ou expiré');
     }
     return ApiResponse.success('Code validé avec succès');
+  }
+
+  // ── 2FA management (settings) ───────────────────────────────────────────────
+
+  // Génère un secret TOTP + un QR code à scanner dans Google Authenticator.
+  // Le secret n'est appliqué qu'après vérification d'un code (activateTotp).
+  async setupTotp(currentUser: any) {
+    try {
+      const user = await this.userModel.findById(currentUser?.data?._id);
+      if (!user) {
+        return ApiResponse.error('Utilisateur introuvable');
+      }
+      const secret = authenticator.generateSecret();
+      user.twoFactorSecret = secret;
+      await user.save();
+
+      const otpauthUrl = authenticator.keyuri(user.email, 'Cyna', secret);
+      const qrDataUrl = await QRCode.toDataURL(otpauthUrl);
+
+      return ApiResponse.success('Secret 2FA généré', {
+        otpauthUrl,
+        qrDataUrl,
+        secret,
+      });
+    } catch (error) {
+      return ApiResponse.error('Erreur lors de la génération du secret 2FA');
+    }
+  }
+
+  // Vérifie un code de l'app d'authentification puis active la méthode TOTP.
+  async activateTotp(code: string, currentUser: any) {
+    try {
+      const user = await this.userModel.findById(currentUser?.data?._id);
+      if (!user) {
+        return ApiResponse.error('Utilisateur introuvable');
+      }
+      if (!user.twoFactorSecret) {
+        return ApiResponse.error(
+          'Aucun secret 2FA trouvé. Relancez la configuration.',
+        );
+      }
+      const isValid = authenticator.verify({
+        token: String(code ?? '').trim(),
+        secret: user.twoFactorSecret,
+      });
+      if (!isValid) {
+        return ApiResponse.error(
+          "Code incorrect. Vérifiez votre application d'authentification.",
+        );
+      }
+      user.twoFactorMethod = TwoFactorMethod.TOTP;
+      await user.save();
+      return ApiResponse.success(
+        'Google Authenticator activé avec succès',
+        { twoFactorMethod: TwoFactorMethod.TOTP },
+      );
+    } catch (error) {
+      return ApiResponse.error("Erreur lors de l'activation du 2FA");
+    }
+  }
+
+  // Active le 2FA par email (code envoyé à la connexion).
+  async activateEmail2FA(currentUser: any) {
+    try {
+      const user = await this.userModel.findById(currentUser?.data?._id);
+      if (!user) {
+        return ApiResponse.error('Utilisateur introuvable');
+      }
+      user.twoFactorMethod = TwoFactorMethod.EMAIL;
+      user.twoFactorSecret = undefined;
+      await user.save();
+      return ApiResponse.success('2FA par email activé avec succès', {
+        twoFactorMethod: TwoFactorMethod.EMAIL,
+      });
+    } catch (error) {
+      return ApiResponse.error("Erreur lors de l'activation du 2FA email");
+    }
+  }
+
+  // Désactive le 2FA (mot de passe requis).
+  async disable2FA(password: string, currentUser: any) {
+    try {
+      const user = await this.userModel.findById(currentUser?.data?._id);
+      if (!user) {
+        return ApiResponse.error('Utilisateur introuvable');
+      }
+      const ok = await bcrypt.compare(password ?? '', user.password);
+      if (!ok) {
+        return ApiResponse.error('Mot de passe incorrect');
+      }
+      user.twoFactorMethod = TwoFactorMethod.NONE;
+      user.twoFactorSecret = undefined;
+      await user.save();
+      return ApiResponse.success('2FA désactivé avec succès', {
+        twoFactorMethod: TwoFactorMethod.NONE,
+      });
+    } catch (error) {
+      return ApiResponse.error('Erreur lors de la désactivation du 2FA');
+    }
+  }
+
+  // Vérifie un code TOTP lors de l'étape 2FA de connexion (utilisateur déjà loggé).
+  async verifyTotpLogin(code: string, currentUser: any) {
+    try {
+      const user = await this.userModel.findById(currentUser?.data?._id);
+      if (!user?.twoFactorSecret) {
+        return ApiResponse.error("L'authentification à deux facteurs n'est pas configurée");
+      }
+      const isValid = authenticator.verify({
+        token: String(code ?? '').trim(),
+        secret: user.twoFactorSecret,
+      });
+      if (!isValid) {
+        return ApiResponse.error('Code incorrect ou expiré');
+      }
+      return ApiResponse.success('Code validé avec succès');
+    } catch (error) {
+      return ApiResponse.error('Erreur lors de la vérification du code');
+    }
   }
 
   async register(registerDto: RegisterDto) {
@@ -127,7 +254,7 @@ export class AuthService {
     } catch (error: any) {
       // ← Ajoute ça
       return ApiResponse.error(
-        'Une erreur est survenue lors de la connexion' + error.message,
+        'Une erreur est survenue lors de la connexion',
       );
     }
   }
@@ -166,10 +293,11 @@ export class AuthService {
         { email: currentEmail },
         'email',
       );
-      // Si l'utilisateur n'existe pas j'envoie un message d'erreur
+      // Réponse identique que le compte existe ou non : empêche
+      // l'énumération des adresses e-mail inscrites.
       if (!currentUser) {
-        return ApiResponse.error(
-          'Nous n’avons trouvé aucun compte associé à cette adresse e-mail.',
+        return ApiResponse.success(
+          'Si un compte existe pour cette adresse, un e-mail de réinitialisation a été envoyé.',
         );
       }
       //Si l'utilisateur existe je l'envoie un mail de reset de password avec un token
@@ -183,7 +311,7 @@ export class AuthService {
         'Veuillez vérifier votre adresse e-mail afin de finaliser l’opération.',
       );
     } catch (error: any) {
-      console.error('Erreur login:', error); // ← Ajoute ça
+      console.error('[AUTH] Echec de la demande de reinitialisation');
       return ApiResponse.error('Une erreur est survenue lors de la connexion');
     }
   }
