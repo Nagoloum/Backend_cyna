@@ -14,6 +14,14 @@ const { createNestApp } = require('../dist/main');
 const server = express();
 let bootstrapPromise = null;
 
+// Origines autorisées (miroir de main.ts allowedOrigins).
+const ALLOWED_ORIGINS = new Set([
+  'https://cynaapp.vercel.app',
+  'http://localhost:5173',
+  'http://localhost',
+  ...(process.env.FRONTEND_URL || '').split(',').map((o) => o.trim()).filter(Boolean),
+]);
+
 async function bootstrap() {
   const app = await createNestApp(server);
   await app.init();
@@ -21,6 +29,27 @@ async function bootstrap() {
 }
 
 module.exports = async (req, res) => {
+  const origin = req.headers['origin'];
+
+  // Positionne les en-têtes CORS dès l'entrée dans la fonction serverless,
+  // avant que Vercel ou NestJS ne puisse les écraser / vider.
+  if (origin && ALLOWED_ORIGINS.has(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Vary', 'Origin');
+  }
+
+  // Court-circuit le preflight OPTIONS : répond immédiatement sans bootstrap.
+  if (req.method === 'OPTIONS') {
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+    res.setHeader(
+      'Access-Control-Allow-Headers',
+      req.headers['access-control-request-headers'] || 'Content-Type,Authorization,Cookie',
+    );
+    res.setHeader('Access-Control-Max-Age', '86400');
+    return res.status(204).end();
+  }
+
   if (!bootstrapPromise) {
     bootstrapPromise = bootstrap();
   }
