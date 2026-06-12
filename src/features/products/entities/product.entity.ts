@@ -33,8 +33,10 @@ export class Product extends Document {
   @Prop({ type: Number, default: 0, index: true })
   stock!: number;
 
+  // "Top product" mis en avant sur la home. Nom aligne avec le frontend
+  // (badge + toggle admin) et le tri des catalogues, qui utilisent is_selected.
   @Prop({ type: Boolean, default: false })
-  priority!: boolean;
+  is_selected!: boolean;
 
   @Prop({ default: 0 })
   order!: number;
@@ -44,3 +46,8 @@ export class Product extends Document {
 }
 
 export const ProductSchema = SchemaFactory.createForClass(Product);
+
+// Index composite pour le listing catalogue (produits d'un service, tries par
+// priorite puis ordre d'affichage) + index sur le prix annuel pour les filtres/tri.
+ProductSchema.index({ service: 1, is_selected: -1, order: 1 });
+ProductSchema.index({ priceYear: 1 });

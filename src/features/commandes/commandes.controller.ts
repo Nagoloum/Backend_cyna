@@ -10,10 +10,17 @@ import {
   ValidationPipe,
   Query,
   Req,
+  Res,
   Headers,
+  NotFoundException,
   UseInterceptors,
 } from '@nestjs/common';
+import type { Response } from 'express';
+import { Throttle } from '@nestjs/throttler';
 import { CommandesService } from './commandes.service';
+import { AbonnementsService } from './abonnements.service';
+import { InvoiceService } from '../../shared/services/invoice.service';
+import { GuestCheckoutDto } from './dto/guest-checkout.dto';
 import { CreateCommandeDto } from './dto/create-commande.dto';
 import { UpdateCommandeDto } from './dto/update-commande.dto';
 import { ApiBearerAuth, ApiConsumes, ApiTags } from '@nestjs/swagger';
@@ -31,7 +38,11 @@ import { NoFilesInterceptor } from '@nestjs/platform-express';
 @ApiBearerAuth()
 @Controller('commandes')
 export class CommandesController {
-  constructor(private readonly commandesService: CommandesService) {}
+  constructor(
+    private readonly commandesService: CommandesService,
+    private readonly abonnementsService: AbonnementsService,
+    private readonly invoiceService: InvoiceService,
+  ) {}
 
   // Endpoint pour créer une commande avec Stripe Checkout
   @UseGuards(AuthGuard)
@@ -47,6 +58,14 @@ export class CommandesController {
       createCommandeDto,
       currentUser,
     );
+  }
+
+  // Achat invité (public) : crée un compte + commande sans connexion préalable.
+  // Rate-limité pour limiter les abus.
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('guest-checkout')
+  guestCheckout(@Body(ValidationPipe) dto: GuestCheckoutDto) {
+    return this.commandesService.guestCheckout(dto);
   }
 
   // Endpoint pour confirmer le paiement (appelé par le frontend authentifié,
@@ -97,10 +116,33 @@ export class CommandesController {
   ) {
     return this.commandesService.findOne(reference, currentUser);
   }
+
+  // Télécharge la facture PDF d'une commande (générée à la volée). Le contrôle
+  // de propriété est délégué à findOne (propriétaire ou admin uniquement).
+  @UseGuards(AuthGuard)
+  @Get(':reference/facture')
+  async downloadInvoice(
+    @Param('reference') reference: string,
+    @CurrentUser() currentUser: any,
+    @Res() res: Response,
+  ) {
+    const result = await this.commandesService.findOne(reference, currentUser);
+    if (!result.success || !result.data) {
+      throw new NotFoundException(result.message ?? 'Commande introuvable');
+    }
+
+    const pdf = await this.invoiceService.buildInvoicePdf(result.data);
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="facture-${reference}.pdf"`,
+      'Content-Length': String(pdf.length),
+    });
+    res.end(pdf);
+  }
   @UseGuards(AuthGuard)
   @Get('abonnements/by-user')
   findAbonnementsByUser(@CurrentUser() currentUser: any) {
-    return this.commandesService.findAbonnementsByUser(currentUser);
+    return this.abonnementsService.findByUser(currentUser);
   }
 
   @UseGuards(AuthGuard)
@@ -109,7 +151,7 @@ export class CommandesController {
     @Param('id') id: string,
     @CurrentUser() currentUser: any,
   ) {
-    return this.commandesService.resilierAbonnementsByUser(id, currentUser);
+    return this.abonnementsService.resilier(id, currentUser);
   }
 
   // Modifier un abonnement (quantité / période) — recalcul, sans paiement.
@@ -120,14 +162,14 @@ export class CommandesController {
     @Body() body: any,
     @CurrentUser() currentUser: any,
   ) {
-    return this.commandesService.updateAbonnement(id, body, currentUser);
+    return this.abonnementsService.update(id, body, currentUser);
   }
 
   // Renouveler un abonnement — débit off-session de la carte enregistrée.
   @UseGuards(AuthGuard)
   @Post('abonnement/renouveler/:id')
   renouvelerAbonnement(@Param('id') id: string, @CurrentUser() currentUser: any) {
-    return this.commandesService.renouvelerAbonnement(id, currentUser);
+    return this.abonnementsService.renouveler(id, currentUser);
   }
 
   // Finaliser un renouvellement après authentification 3-D Secure.
@@ -138,7 +180,7 @@ export class CommandesController {
     @Body() body: any,
     @CurrentUser() currentUser: any,
   ) {
-    return this.commandesService.confirmRenouvellement(
+    return this.abonnementsService.confirmRenouvellement(
       id,
       body?.paymentIntentId,
       currentUser,
@@ -149,5 +191,21 @@ export class CommandesController {
   @Patch(':id')
   cancel(@Param('id') id: string, @CurrentUser() currentUser: any) {
     return this.commandesService.cancel(id, currentUser);
+  }
+
+  // Changement de statut d'une commande par un administrateur.
+  @AuthorizeRoles(UserRoles.ADMIN)
+  @UseGuards(AuthGuard, AuthorizeGuard)
+  @Patch(':id/statut')
+  updateStatut(
+    @Param('id') id: string,
+    @Body() body: any,
+    @CurrentUser() currentUser: any,
+  ) {
+    return this.commandesService.updateStatutByAdmin(
+      id,
+      body?.statut,
+      currentUser,
+    );
   }
 }

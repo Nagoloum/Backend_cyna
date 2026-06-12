@@ -21,5 +21,6 @@ import { JwtService } from '@nestjs/jwt';
   ],
   controllers: [AdresseFacturationsController],
   providers: [AdresseFacturationsService, JwtService],
+  exports: [AdresseFacturationsService],
 })
 export class AdresseFacturationsModule {}

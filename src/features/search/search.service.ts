@@ -102,6 +102,24 @@ export class SearchService {
       pipeline.push({ $addFields: { searchScore: 0 } });
     }
 
+    // 4. TRI — applique reellement le critere demande (auparavant ignore).
+    // Sans critere explicite : pertinence (score) puis nouveaute.
+    const direction = dto.sortOrder === 'desc' ? -1 : 1;
+    let sortStage: Record<string, 1 | -1>;
+    switch (dto.sortBy) {
+      case 'prix':
+        sortStage = { priceMonth: direction, searchScore: -1 };
+        break;
+      case 'nouveauté':
+        sortStage = { createdAt: direction, searchScore: -1 };
+        break;
+      case 'disponibilité':
+        sortStage = { stock: direction, searchScore: -1 };
+        break;
+      default:
+        sortStage = { searchScore: -1, createdAt: -1 };
+    }
+    pipeline.push({ $sort: sortStage });
 
     // 5. PAGINATION
     const page = Math.max(1, Number((dto as any).page) || 1);

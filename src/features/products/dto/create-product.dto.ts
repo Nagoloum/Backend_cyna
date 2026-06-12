@@ -53,5 +53,5 @@ export class CreateProductDto {
 
   @IsOptional()
   @ApiPropertyOptional()
-  priority!: boolean;
+  is_selected!: boolean;
 }

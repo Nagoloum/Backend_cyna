@@ -5,10 +5,12 @@ import {
   Body,
   Patch,
   Param,
+  Query,
   Delete,
   UseGuards,
 } from '@nestjs/common';
 import { ContactService } from './contact.service';
+import { QueryDto } from '../../shared/dto/query.dto';
 import { CreateContactDto } from './dto/create-contact.dto';
 import { UpdateContactDto } from './dto/update-contact.dto';
 import { ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
@@ -35,8 +37,8 @@ export class ContactController {
   @AuthorizeRoles(UserRoles.ADMIN)
   @UseGuards(AuthGuard, AuthorizeGuard)
   @Get()
-  findAll() {
-    return this.contactService.findAll();
+  findAll(@Query() queryDto: QueryDto) {
+    return this.contactService.findAll(queryDto);
   }
 
   @ApiBearerAuth()
@@ -53,6 +55,24 @@ export class ContactController {
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateContactDto: UpdateContactDto) {
     return this.contactService.update(id, updateContactDto);
+  }
+
+  // Répondre à un message : enregistre la réponse + email au client (admin).
+  @ApiBearerAuth()
+  @AuthorizeRoles(UserRoles.ADMIN)
+  @UseGuards(AuthGuard, AuthorizeGuard)
+  @Patch(':id/reply')
+  reply(@Param('id') id: string, @Body() body: { message: string }) {
+    return this.contactService.reply(id, body?.message);
+  }
+
+  // Changer le statut d'un ticket (NEW/READ/REPLIED/CLOSED) — admin.
+  @ApiBearerAuth()
+  @AuthorizeRoles(UserRoles.ADMIN)
+  @UseGuards(AuthGuard, AuthorizeGuard)
+  @Patch(':id/status')
+  setStatus(@Param('id') id: string, @Body() body: { status: string }) {
+    return this.contactService.setStatus(id, body?.status);
   }
 
   @ApiBearerAuth()

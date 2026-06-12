@@ -7,6 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Response } from 'express';
+import { captureError } from '../sentry';
 
 /**
  * Filtre d'exceptions global.
@@ -38,6 +39,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         `${request?.method ?? ''} ${request?.url ?? ''} → ${status}`,
         stack,
       );
+      // Remontée à Sentry (no-op si non configuré) pour les erreurs serveur.
+      captureError(exception);
     } else {
       this.logger.warn(
         `${request?.method ?? ''} ${request?.url ?? ''} → ${status}`,

@@ -29,3 +29,6 @@ export class AdresseFacturation extends Document {
 
 export const AdresseFacturationSchema =
   SchemaFactory.createForClass(AdresseFacturation);
+
+// Index sur le proprietaire : les adresses sont toujours listees par utilisateur.
+AdresseFacturationSchema.index({ user: 1 });

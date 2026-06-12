@@ -9,27 +9,165 @@ import * as bcrypt from 'bcrypt';
 import { Type } from 'class-transformer';
 import { ChangePasswordProfilDto } from './dto/create-user.dto';
 import { SharedService } from '../../shared/services/shared.service';
+import { QueryDto } from '../../shared/dto/query.dto';
+import { escapeRegex } from '../../shared/generic/escape-regex';
+import { AuditService } from '../audit/audit.service';
+import { randomUUID } from 'crypto';
+
+const USER_PUBLIC_SELECT = '-password -verification -twoFactorSecret';
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectModel(User.name) private readonly userModel: Model<User>,
     private readonly sharedService: SharedService,
+    private readonly auditService: AuditService,
   ) {}
-  async findAll() {
-    try {
-      const allUsers = await this.userModel.find().select('-password').exec();
 
-      // Mongoose renvoie [] si la collection est vide
-      if (allUsers.length === 0) {
-        return ApiResponse.success('Aucun utilisateur pour le moment', []);
+  // Rétro-compatible : sans page/limit on renvoie toute la liste (utilisé par le
+  // dashboard pour les comptages) ; avec page/limit on pagine (page admin).
+  async findAll(query?: QueryDto) {
+    try {
+      const { page, limit, search, sortBy, sortOrder } = query ?? {};
+
+      const filter: Record<string, any> = {};
+      if (search) {
+        const rx = { $regex: escapeRegex(String(search)), $options: 'i' };
+        filter.$or = [{ email: rx }, { firstName: rx }, { lastName: rx }];
       }
 
-      return ApiResponse.success('Liste des utilisateurs récupérée', allUsers);
+      if (!page && !limit) {
+        const allUsers = await this.userModel
+          .find(filter)
+          .select(USER_PUBLIC_SELECT)
+          .exec();
+        return ApiResponse.success(
+          'Liste des utilisateurs récupérée',
+          allUsers,
+        );
+      }
+
+      const p = Math.max(1, Number(page) || 1);
+      const l = Math.max(1, Number(limit) || 10);
+      const allowedSort = ['email', 'firstName', 'lastName', 'role', 'createdAt'];
+      const sortField = allowedSort.includes(String(sortBy))
+        ? String(sortBy)
+        : 'createdAt';
+      const sort: Record<string, 1 | -1> = {
+        [sortField]: sortOrder === 'asc' ? 1 : -1,
+      };
+
+      const [data, total] = await Promise.all([
+        this.userModel
+          .find(filter)
+          .select(USER_PUBLIC_SELECT)
+          .sort(sort)
+          .skip((p - 1) * l)
+          .limit(l)
+          .exec(),
+        this.userModel.countDocuments(filter),
+      ]);
+
+      return ApiResponse.success('Liste des utilisateurs récupérée', {
+        data,
+        total,
+        page: p,
+        limit: l,
+        totalPage: Math.ceil(total / l),
+      });
     } catch (_error) {
       return ApiResponse.error(
         'Une erreur est survenue lors de la récupération : ',
       );
+    }
+  }
+
+  // Crée un compte lors d'un achat invité. Refuse si l'email a déjà un compte
+  // (l'invité doit alors se connecter). Génère un jeton "définir mot de passe"
+  // (à usage unique, 7 jours) renvoyé pour l'email de bienvenue.
+  async createGuest(dto: {
+    email: string;
+    firstName: string;
+    lastName: string;
+  }) {
+    try {
+      const existing = await this.userModel
+        .findOne({ email: dto.email })
+        .exec();
+      if (existing) {
+        return ApiResponse.conflict(
+          'Un compte existe déjà pour cet email. Veuillez vous connecter.',
+        );
+      }
+
+      // Mot de passe aléatoire : l'utilisateur le définira via l'email de bienvenue.
+      const randomPassword = await bcrypt.hash(
+        `${randomUUID()}-${Date.now()}`,
+        10,
+      );
+      const jti = randomUUID();
+      const user = await this.userModel.create({
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        email: dto.email,
+        password: randomPassword,
+        confirmed: false,
+        isActive: true,
+        resetPasswordJti: jti,
+      });
+
+      const setupToken = this.sharedService.resetPasswordToken(user, jti, '7d');
+
+      await this.auditService.record({
+        action: 'user.guest_created',
+        actorId: user._id.toString(),
+        actorEmail: user.email,
+      });
+
+      return ApiResponse.success('Compte invité créé', { user, setupToken });
+    } catch (_error) {
+      return ApiResponse.error('Erreur lors de la création du compte invité');
+    }
+  }
+
+  // Suspension / réactivation d'un compte par un administrateur.
+  async setUserActive(id: string, isActive: unknown, currentUser: any) {
+    try {
+      if (!isValidObjectId(id)) {
+        return ApiResponse.error("L'id est invalide");
+      }
+      if (isActive === undefined || isActive === null) {
+        return ApiResponse.error('Le paramètre isActive est requis');
+      }
+      const active = isActive === true || isActive === 'true';
+
+      // Garde-fou : un admin ne peut pas suspendre son propre compte.
+      if (!active && currentUser?.data?._id?.toString() === id) {
+        return ApiResponse.error(
+          'Vous ne pouvez pas suspendre votre propre compte',
+        );
+      }
+
+      const updated = await this.userModel
+        .findByIdAndUpdate(id, { isActive: active }, { new: true })
+        .select(USER_PUBLIC_SELECT)
+        .exec();
+      if (!updated) {
+        return ApiResponse.notFound('Utilisateur introuvable');
+      }
+      await this.auditService.record({
+        action: active ? 'user.reactivated' : 'user.suspended',
+        actorId: currentUser?.data?._id?.toString(),
+        actorEmail: currentUser?.data?.email,
+        targetType: 'user',
+        targetId: id,
+      });
+      return ApiResponse.success(
+        active ? 'Utilisateur réactivé' : 'Utilisateur suspendu',
+        updated,
+      );
+    } catch (_error) {
+      return ApiResponse.error('Erreur lors de la mise à jour du statut');
     }
   }
 
@@ -41,7 +179,7 @@ export class UsersService {
         const isAdmin = requester?.data?.role === 'ADMIN';
         const isOwner = requester?.data?._id?.toString() === id;
         if (!isOwner && !isAdmin) {
-          return ApiResponse.error('Accès refusé');
+          return ApiResponse.forbidden('Accès refusé');
         }
       }
       const user = await this.userModel
@@ -49,7 +187,7 @@ export class UsersService {
         .select('-password -verification -twoFactorSecret')
         .exec();
       if (!user) {
-        return ApiResponse.error('Utilisateur introuvable');
+        return ApiResponse.notFound('Utilisateur introuvable');
       }
       return ApiResponse.success('Utilisateur trouvé avec succès', user);
     } catch (_error) {
@@ -65,7 +203,7 @@ export class UsersService {
 
       const user = await this.userModel.findById(id, '_id role').exec();
       if (!user) {
-        return ApiResponse.error('Utilisateur introuvable');
+        return ApiResponse.notFound('Utilisateur introuvable');
       }
 
       // --- 2) Autorisations ---
@@ -73,7 +211,7 @@ export class UsersService {
       const isAdmin = currentUser?.data?.role === 'ADMIN';
       const isOwner = user.id === currentUser?.data?._id?.toString();
       if (!isOwner && !isAdmin) {
-        return ApiResponse.error(
+        return ApiResponse.forbidden(
           'Vous ne pouvais pas modifier cet utilisateur',
         );
       }
@@ -100,7 +238,7 @@ export class UsersService {
         .findById({ _id: new Types.ObjectId(currentUser.data._id) })
         .exec();
       if (!user) {
-        return ApiResponse.error('Utilisateur introuvable');
+        return ApiResponse.notFound('Utilisateur introuvable');
       }
 
       if (
@@ -154,12 +292,19 @@ export class UsersService {
       const isAdmin = currentUser?.data?.role === 'ADMIN';
       const isOwner = currentUser?.data?._id?.toString() === id;
       if (!isOwner && !isAdmin) {
-        return ApiResponse.error('Accès refusé');
+        return ApiResponse.forbidden('Accès refusé');
       }
       const deletedUser = await this.userModel.findByIdAndDelete(id).exec();
       if (!deletedUser) {
-        return ApiResponse.error('Utilisateur introuvable');
+        return ApiResponse.notFound('Utilisateur introuvable');
       }
+      await this.auditService.record({
+        action: 'user.deleted',
+        actorId: currentUser?.data?._id?.toString(),
+        actorEmail: currentUser?.data?.email,
+        targetType: 'user',
+        targetId: id,
+      });
       return ApiResponse.success('Utilisateur supprimé avec succès');
     } catch (_error) {
       return ApiResponse.error('Erreur lors de la suppression');

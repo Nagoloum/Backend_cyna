@@ -5,6 +5,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { Contact, ContactSchema } from './entities/contact.entity';
 import { UsersModule } from '../users/users.module';
 import { JwtService } from '@nestjs/jwt';
+import { SendEmailService } from '../../shared/services/sendemail.service';
 
 @Module({
   imports: [
@@ -12,6 +13,6 @@ import { JwtService } from '@nestjs/jwt';
     UsersModule,
   ],
   controllers: [ContactController],
-  providers: [ContactService, JwtService],
+  providers: [ContactService, JwtService, SendEmailService],
 })
 export class ContactModule {}

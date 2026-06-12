@@ -102,7 +102,13 @@ import {
   NestExpressApplication,
 } from '@nestjs/platform-express';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 import { GlobalExceptionFilter } from './shared/filters/global-exception.filter';
+import { initSentry } from './shared/sentry';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+
+// Initialise Sentry au plus tôt (no-op sans SENTRY_DSN).
+initSentry();
 
 /**
  * Crée et configure l'application NestJS.
@@ -156,7 +162,14 @@ export async function createNestApp(
   app.enableCors({
     origin: allowedOrigins,
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
+    // Expose l'en-tête métier + autorise les cookies cross-origin (withCredentials).
+    exposedHeaders: ['X-App-Error'],
+    credentials: true,
   });
+
+  // Analyse les cookies de chaque requête entrante (nécessaire pour le mode
+  // httpOnly cookie — le JWT est lu depuis req.cookies.accessToken).
+  app.use(cookieParser());
 
   // prefix API
   app.setGlobalPrefix('api');
@@ -164,6 +177,7 @@ export async function createNestApp(
   // (anti mass-assignment) ; transform : caste les types déclarés.
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   app.useGlobalFilters(new GlobalExceptionFilter());
+  app.useLogger(app.get(WINSTON_MODULE_NEST_PROVIDER));
 
   // === Swagger Configuration ===
   // Actif par défaut (la doc est déployée sur Vercel) ; mettre
