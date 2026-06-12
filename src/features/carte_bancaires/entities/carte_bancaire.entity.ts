@@ -25,3 +25,6 @@ export class CarteBancaire extends Document {
   user!: User;
 }
 export const CarteBancaireSchema = SchemaFactory.createForClass(CarteBancaire);
+
+// Index sur le proprietaire : les cartes sont toujours listees par utilisateur.
+CarteBancaireSchema.index({ user: 1 });

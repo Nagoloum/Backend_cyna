@@ -10,9 +10,6 @@ config();
 export class SharedService {
   constructor(private jwtService: JwtService) {}
 
-  private storedCode: string | null = null;
-  private expiry: number | null = null;
-
   generateSlug(name: string): string {
     // Convertir en minuscules et supprimer les caractères spéciaux et les accents
     const slug = name
@@ -55,17 +52,43 @@ export class SharedService {
     return result; // exemple: "a9Zk2P0xQ1"
   }
 
-  accessToken(user: User) {
-    const payload = {
+  accessToken(user: User, options?: { twoFactorPending?: boolean }) {
+    const payload: Record<string, any> = {
       id: user._id.toString(), // ✅ important
       email: user.email,
       role: user.role,
     };
 
+    // Jeton "pre-auth" tant que la 2FA n'est pas validee : il identifie
+    // l'utilisateur pour l'etape 2FA mais est refuse sur les routes protegees
+    // (voir AuthGuard + @Allow2FAPending). Empeche de contourner la 2FA.
+    if (options?.twoFactorPending) {
+      payload.twoFactorPending = true;
+    }
+
     return this.jwtService.sign(payload, {
       secret: process.env.ACCESS_TOKEN_SECRET_KEY!,
       expiresIn: process.env.ACCESS_TOKEN_EXPIRE_TIME as StringValue,
     });
+  }
+
+  // Jeton de reinitialisation / definition de mot de passe : jti unique stocke
+  // sur l'utilisateur, ce qui le rend a usage unique (voir resetPassword).
+  // Duree par defaut 1h (reset classique) ; plus longue pour l'activation d'un
+  // compte invite (ex. 7d).
+  resetPasswordToken(user: User, jti: string, expiresIn: StringValue = '1h') {
+    return this.jwtService.sign(
+      {
+        id: user._id.toString(),
+        email: user.email,
+        jti,
+        purpose: 'reset',
+      },
+      {
+        secret: process.env.ACCESS_TOKEN_SECRET_KEY!,
+        expiresIn,
+      },
+    );
   }
   tokenConfirmedEmail(user: User) {
     const payload = {
@@ -103,24 +126,11 @@ export class SharedService {
     return new Date(year, month - 1, day); // mois commence à 0 en JS
   }
 
+  // Code 2FA email a 6 chiffres. Pur : la persistance (code + expiration) se fait
+  // sur le document User en base, jamais en memoire process — indispensable en
+  // environnement serverless multi-instances (Vercel) ou chaque requete peut
+  // tomber sur une instance differente.
   generateSixDigitCode(): string {
-    const newVerificationCode = Math.floor(
-      100000 + Math.random() * 900000,
-    ).toString();
-    this.storedCode = newVerificationCode;
-    this.expiry = Date.now() + 5 * 60 * 1000; // Valide 5 minutes
-    return newVerificationCode;
-  }
-  verifyCode(code: string): boolean {
-    if (!this.storedCode || !this.expiry) {
-      return false;
-    }
-    // Étape 2 : Vérification du temps
-    if (Date.now() > this.expiry) {
-      this.storedCode = null; // on efface le code en memoire
-      return false;
-    }
-    const isMatch = code === this.storedCode;
-    return isMatch;
+    return Math.floor(100000 + Math.random() * 900000).toString();
   }
 }

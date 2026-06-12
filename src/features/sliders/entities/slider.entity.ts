@@ -20,3 +20,6 @@ export class Slider extends Document {
 }
 
 export const SliderSchema = SchemaFactory.createForClass(Slider);
+
+// Les slides du carrousel sont toujours recuperes tries par ordre d'affichage.
+SliderSchema.index({ order: 1 });

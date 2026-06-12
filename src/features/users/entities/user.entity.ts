@@ -16,7 +16,7 @@ export class User extends Document {
   @Prop({ required: true })
   password!: string;
 
-  @Prop({ required: true, default: UserRoles.CUSTOMER })
+  @Prop({ type: String, enum: UserRoles, required: true, default: UserRoles.CUSTOMER })
   role!: UserRoles;
   @Prop(
     raw({
@@ -34,6 +34,11 @@ export class User extends Document {
   @Prop({ default: false })
   confirmed!: boolean;
 
+  // Compte actif. Un compte suspendu (false) par un admin ne peut plus se
+  // connecter et ses jetons existants sont refusés par l'AuthGuard.
+  @Prop({ default: true })
+  isActive!: boolean;
+
   // ── Two-factor authentication ──
   @Prop({
     type: String,
@@ -45,6 +50,11 @@ export class User extends Document {
   // TOTP shared secret (base32). Never exposed via the API.
   @Prop()
   twoFactorSecret?: string;
+
+  // jti du dernier token de reinitialisation de mot de passe emis. Permet de
+  // rendre le lien de reset a usage unique (efface des qu'il est consomme).
+  @Prop()
+  resetPasswordJti?: string;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

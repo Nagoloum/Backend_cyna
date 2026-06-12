@@ -95,9 +95,9 @@ function buildProducts() {
       stock = 15 + ((i * 37) % 200); // valeur déterministe variée
     }
 
-    // Priorité + ordre
-    const priority = PRIORITY_INDEXES.has(i);
-    const order = priority ? i + 1 : 0; // 1..5 pour les prioritaires
+    // Top product (mis en avant) + ordre
+    const is_selected = PRIORITY_INDEXES.has(i);
+    const order = is_selected ? i + 1 : 0; // 1..5 pour les produits mis en avant
 
     // Service en alternance
     const service = new ObjectId(SERVICE_IDS[i % SERVICE_IDS.length]);
@@ -112,7 +112,7 @@ function buildProducts() {
       stripePriceMonthId: '',
       stripePriceYearId: '',
       stock,
-      priority,
+      is_selected,
       order,
       service,
       createdAt: now,
@@ -140,7 +140,7 @@ function buildProducts() {
     const res = await db.collection('products').insertMany(products);
     console.log(`✅ ${res.insertedCount} produits insérés dans "${db.databaseName}".`);
 
-    const priority = products.filter((p) => p.priority).length;
+    const priority = products.filter((p) => p.is_selected).length;
     const outOfStock = products.filter((p) => p.stock === 0).length;
     console.log(`   - prioritaires (priority=true + order) : ${priority}`);
     console.log(`   - en rupture (stock=0) : ${outOfStock}`);

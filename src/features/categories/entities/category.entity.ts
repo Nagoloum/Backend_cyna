@@ -14,3 +14,6 @@ export class Category extends Document {
   order!: number;
 }
 export const CategorySchema = SchemaFactory.createForClass(Category);
+
+// Les categories sont quasi systematiquement listees triees par ordre d'affichage.
+CategorySchema.index({ order: 1 });

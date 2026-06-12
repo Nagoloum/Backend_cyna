@@ -7,6 +7,8 @@ import { ApiResponse } from '../../shared/responses/api-response';
 import * as bcrypt from 'bcrypt';
 import { SharedService } from '../../shared/services/shared.service';
 import { SendEmailService } from '../../shared/services/sendemail.service';
+import { AnalyticsService } from '../../shared/services/analytics.service';
+import { AuditService } from '../audit/audit.service';
 import { JwtService } from '@nestjs/jwt';
 import { config } from 'dotenv';
 import { StringValue } from 'ms';
@@ -15,6 +17,7 @@ import { UserRoles } from '../../shared/common/user-roles.enum';
 import { console } from 'inspector/promises';
 import { authenticator } from 'otplib';
 import * as QRCode from 'qrcode';
+import { randomUUID } from 'crypto';
 import { TwoFactorMethod } from '../../shared/common/two-factor-method.enum';
 
 config();
@@ -28,6 +31,8 @@ export class AuthService {
     @InjectModel(User.name) private readonly userModel: Model<User>,
     private readonly sharedService: SharedService,
     private readonly sendEmailService: SendEmailService,
+    private readonly analyticsService: AnalyticsService,
+    private readonly auditService: AuditService,
     private jwtService: JwtService,
   ) {}
 
@@ -40,7 +45,7 @@ export class AuthService {
       // Message identique que le compte existe ou non : empêche
       // l'énumération des adresses e-mail inscrites.
       if (!user) {
-        return ApiResponse.error('Adresse e-mail ou mot de passe incorrect');
+        return ApiResponse.unauthorized('Adresse e-mail ou mot de passe incorrect');
       }
 
       const matchPassword = await bcrypt.compare(
@@ -49,11 +54,36 @@ export class AuthService {
       );
 
       if (!matchPassword) {
-        return ApiResponse.error('Adresse e-mail ou mot de passe incorrect');
+        return ApiResponse.unauthorized('Adresse e-mail ou mot de passe incorrect');
       }
+
+      // Compte suspendu par un administrateur : connexion refusée.
+      if (user.isActive === false) {
+        return ApiResponse.forbidden(
+          'Votre compte a été suspendu. Veuillez contacter le support.',
+        );
+      }
+
+      // Adresse e-mail non confirmée : connexion refusée.
+      if (!user.confirmed) {
+        return ApiResponse.forbidden(
+          'Veuillez confirmer votre adresse e-mail avant de vous connecter.',
+        );
+      }
+
+      // Traçabilité : connexion réussie (vérification des identifiants).
+      await this.auditService.record({
+        action: 'user.login',
+        actorId: user._id.toString(),
+        actorEmail: user.email,
+      });
       // 2FA par utilisateur. Pour la méthode EMAIL on envoie un code à 6 chiffres.
       // Pour TOTP (Google Authenticator) l'utilisateur a déjà son code dans l'app.
       const twoFactorMethod = user.twoFactorMethod ?? TwoFactorMethod.NONE;
+      const needs2FA =
+        twoFactorMethod === TwoFactorMethod.EMAIL ||
+        twoFactorMethod === TwoFactorMethod.TOTP;
+
       if (twoFactorMethod === TwoFactorMethod.EMAIL) {
         const code = this.sharedService.generateSixDigitCode();
         await this.userModel.findOneAndUpdate(
@@ -67,7 +97,14 @@ export class AuthService {
         );
         await this.sendEmailService.sendVerificationCode(user.email, code);
       }
-      const token = this.sharedService.accessToken(user);
+
+      // Si la 2FA est active, on ne delivre qu'un jeton "pre-auth" : il sert
+      // uniquement a l'etape de verification du code (check-code / totp/verify)
+      // et est refuse partout ailleurs. Le jeton complet n'est emis qu'apres
+      // validation du second facteur. Empeche tout contournement de la 2FA.
+      const token = this.sharedService.accessToken(user, {
+        twoFactorPending: needs2FA,
+      });
       return ApiResponse.success('Connexion réussie', {
         token,
         role: user.role,
@@ -79,16 +116,47 @@ export class AuthService {
       );
     }
   }
-  verifyCode2FA(inputCode: string) {
+  // Verifie le code 2FA email. Le code est lu sur le document User en base
+  // (et non en memoire), ce qui rend la verification fiable en serverless et
+  // scopee a l'utilisateur authentifie par le jeton pre-auth. Usage unique :
+  // le code est efface des qu'il est consomme. Un jeton complet est alors emis.
+  async verifyCode2FA(inputCode: string, currentUser: any) {
     if (!inputCode) {
       return ApiResponse.error('Code de confirmation requis');
     }
-    const isValid = this.sharedService.verifyCode(inputCode);
 
-    if (!isValid) {
-      return ApiResponse.error('Code de confirmation incorrect ou expiré');
+    const userId = currentUser?.data?._id;
+    const user = await this.userModel.findById(userId);
+    if (!user) {
+      return ApiResponse.error('Utilisateur introuvable');
     }
-    return ApiResponse.success('Code validé avec succès');
+
+    const storedCode = user.verification?.code;
+    const dateExp = user.verification?.dateExp;
+    if (!storedCode || !dateExp) {
+      return ApiResponse.error('Aucun code en attente. Reconnectez-vous.');
+    }
+
+    if (new Date(dateExp).getTime() < Date.now()) {
+      // Code expire : on le purge pour eviter toute reutilisation.
+      user.verification = { code: '', dateExp: '' };
+      await user.save();
+      return ApiResponse.error('Code de confirmation expiré');
+    }
+
+    if (String(inputCode).trim() !== String(storedCode)) {
+      return ApiResponse.error('Code de confirmation incorrect');
+    }
+
+    // Code valide : usage unique → on l'efface, puis on emet le jeton complet.
+    user.verification = { code: '', dateExp: '' };
+    await user.save();
+
+    const token = this.sharedService.accessToken(user);
+    return ApiResponse.success('Code validé avec succès', {
+      token,
+      role: user.role,
+    });
   }
 
   // ── 2FA management (settings) ───────────────────────────────────────────────
@@ -141,6 +209,12 @@ export class AuthService {
       }
       user.twoFactorMethod = TwoFactorMethod.TOTP;
       await user.save();
+      await this.auditService.record({
+        action: 'user.2fa_enabled',
+        actorId: user._id.toString(),
+        actorEmail: user.email,
+        metadata: { method: 'TOTP' },
+      });
       return ApiResponse.success(
         'Google Authenticator activé avec succès',
         { twoFactorMethod: TwoFactorMethod.TOTP },
@@ -160,6 +234,12 @@ export class AuthService {
       user.twoFactorMethod = TwoFactorMethod.EMAIL;
       user.twoFactorSecret = undefined;
       await user.save();
+      await this.auditService.record({
+        action: 'user.2fa_enabled',
+        actorId: user._id.toString(),
+        actorEmail: user.email,
+        metadata: { method: 'EMAIL' },
+      });
       return ApiResponse.success('2FA par email activé avec succès', {
         twoFactorMethod: TwoFactorMethod.EMAIL,
       });
@@ -182,6 +262,11 @@ export class AuthService {
       user.twoFactorMethod = TwoFactorMethod.NONE;
       user.twoFactorSecret = undefined;
       await user.save();
+      await this.auditService.record({
+        action: 'user.2fa_disabled',
+        actorId: user._id.toString(),
+        actorEmail: user.email,
+      });
       return ApiResponse.success('2FA désactivé avec succès', {
         twoFactorMethod: TwoFactorMethod.NONE,
       });
@@ -204,7 +289,12 @@ export class AuthService {
       if (!isValid) {
         return ApiResponse.error('Code incorrect ou expiré');
       }
-      return ApiResponse.success('Code validé avec succès');
+      // Second facteur valide : on remplace le jeton pre-auth par un jeton complet.
+      const token = this.sharedService.accessToken(user);
+      return ApiResponse.success('Code validé avec succès', {
+        token,
+        role: user.role,
+      });
     } catch (error) {
       return ApiResponse.error('Erreur lors de la vérification du code');
     }
@@ -217,7 +307,7 @@ export class AuthService {
         .exec();
 
       if (user) {
-        return ApiResponse.error(
+        return ApiResponse.conflict(
           'Cet email est déjà utilisé, veuillez vous connecter',
         );
       }
@@ -239,6 +329,9 @@ export class AuthService {
       });
 
       const savedUser = await newUser.save();
+
+      // Evenement metier (sans donnee personnelle) : nouvelle inscription.
+      this.analyticsService.track('user_registered', { role: savedUser.role });
 
       const tokenConfirmedEmail =
         this.sharedService.tokenConfirmedEmail(savedUser);
@@ -300,9 +393,18 @@ export class AuthService {
           'Si un compte existe pour cette adresse, un e-mail de réinitialisation a été envoyé.',
         );
       }
-      //Si l'utilisateur existe je l'envoie un mail de reset de password avec un token
-      const createTokenForget =
-        this.sharedService.tokenConfirmedEmail(currentUser); // création d'un tokebn
+      // Token de reset a usage unique : on genere un jti aleatoire, on le stocke
+      // sur l'utilisateur, et il est invalide des qu'il est consomme (ou qu'une
+      // nouvelle demande est faite). Duree de vie courte (1h).
+      const jti = randomUUID();
+      await this.userModel.updateOne(
+        { _id: currentUser._id },
+        { resetPasswordJti: jti },
+      );
+      const createTokenForget = this.sharedService.resetPasswordToken(
+        currentUser,
+        jti,
+      );
       await this.sendEmailService.sendResetPassword(
         currentUser.email,
         createTokenForget,
@@ -330,6 +432,15 @@ export class AuthService {
       if (!user) {
         return ApiResponse.error('Utilisateur introuvable.');
       }
+
+      // Usage unique : le jti du token doit correspondre a celui stocke. Un token
+      // deja consomme (jti efface) ou remplace par une nouvelle demande est refuse.
+      if (!payload.jti || user.resetPasswordJti !== payload.jti) {
+        return ApiResponse.error(
+          'Ce lien de réinitialisation a déjà été utilisé ou n’est plus valide.',
+        );
+      }
+
       // Vérification des règles du mot de passe
       if (!this.sharedService.isStrongPassword(newPassword)) {
         return ApiResponse.error(
@@ -340,9 +451,16 @@ export class AuthService {
       // Hachage du mot de passe
       const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-      // Enregistrement du nouveau mot de passe
+      // Enregistrement du nouveau mot de passe + invalidation du token (usage unique).
       user.password = hashedPassword;
+      user.resetPasswordJti = undefined;
       await user.save();
+
+      await this.auditService.record({
+        action: 'user.password_reset',
+        actorId: user._id.toString(),
+        actorEmail: user.email,
+      });
       return ApiResponse.success('Mot de passe réinitialisé avec succès.');
     } catch (error) {
       return ApiResponse.error(

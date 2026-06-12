@@ -23,5 +23,6 @@ import { StripeModule } from '../../stripe/stripe.module';
   ],
   controllers: [CarteBancairesController],
   providers: [CarteBancairesService, JwtService],
+  exports: [CarteBancairesService],
 })
 export class CarteBancairesModule {}

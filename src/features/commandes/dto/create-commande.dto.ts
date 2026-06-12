@@ -2,13 +2,12 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
-  IsEnum,
   IsMongoId,
   IsNotEmpty,
   IsOptional,
+  IsString,
   ValidateNested,
 } from 'class-validator';
-import { StatutCommande } from '../../../shared/common/statut-commande.enum';
 import { AbonnementDto } from '../../../shared/dto';
 
 export class CreateCommandeDto {
@@ -31,4 +30,9 @@ export class CreateCommandeDto {
   @ValidateNested({ each: true })
   @Type(() => AbonnementDto)
   abonnements!: AbonnementDto[];
+
+  @ApiProperty({ required: false, description: 'Code promo optionnel' })
+  @IsOptional()
+  @IsString()
+  couponCode?: string;
 }

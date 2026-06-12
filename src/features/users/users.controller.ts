@@ -4,6 +4,7 @@ import {
   Body,
   Patch,
   Param,
+  Query,
   Delete,
   UseGuards,
   ValidationPipe,
@@ -11,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { QueryDto } from '../../shared/dto/query.dto';
 import { AuthorizeRoles } from '../../shared/decorators/authorize-roles.decorator';
 import { UserRoles } from '../../shared/common/user-roles.enum';
 import { AuthGuard } from '../../shared/guards/auth.guard';
@@ -26,12 +28,24 @@ import { ChangePasswordProfilDto } from './dto/create-user.dto';
 @ApiConsumes('multipart/form-data')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
-  //Afficher Tous les utilisateurs
+  //Afficher Tous les utilisateurs (paginé si page/limit fournis)
   @AuthorizeRoles(UserRoles.ADMIN)
   @UseGuards(AuthGuard, AuthorizeGuard)
   @Get()
-  findAll() {
-    return this.usersService.findAll();
+  findAll(@Query() queryDto: QueryDto) {
+    return this.usersService.findAll(queryDto);
+  }
+
+  // Suspendre / réactiver un compte (admin uniquement). Body: { isActive: boolean }
+  @AuthorizeRoles(UserRoles.ADMIN)
+  @UseGuards(AuthGuard, AuthorizeGuard)
+  @Patch(':id/status')
+  setActive(
+    @Param('id') id: string,
+    @Body() body: any,
+    @CurrentUser() currentUser: any,
+  ) {
+    return this.usersService.setUserActive(id, body?.isActive, currentUser);
   }
 
   // Profil accessible uniquement par son propriétaire ou un admin.

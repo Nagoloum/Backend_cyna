@@ -122,7 +122,7 @@ export class ProductsService {
   async productByOrder() {
     try {
       const product = await this.productModel
-        .find({ priority: true })
+        .find({ is_selected: true })
         .populate({
           path: 'service',
           select: 'name slug category',
