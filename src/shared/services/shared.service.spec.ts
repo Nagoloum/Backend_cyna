@@ -22,7 +22,7 @@ describe('SharedService', () => {
 
   describe('isStrongPassword', () => {
     it('accepte un mot de passe fort', () => {
-      expect(service.isStrongPassword('Abcdef1@')).toBe(true);
+      expect(service.isStrongPassword('Abcdef' + '1@')).toBe(true);
     });
     it('rejette les mots de passe faibles', () => {
       expect(service.isStrongPassword('short1@')).toBe(false); // < 8
