@@ -59,7 +59,9 @@ export class StripeWebhookController {
     try {
       switch (event.type) {
         case 'payment_intent.succeeded': {
-          const intent = event.data.object as { metadata?: { orderId?: string } };
+          const intent = event.data.object as {
+            metadata?: { orderId?: string };
+          };
           const orderId = intent?.metadata?.orderId;
           if (orderId) {
             // Idempotent : markAsPaid peut etre rejoue sans effet de bord.
@@ -69,7 +71,9 @@ export class StripeWebhookController {
           break;
         }
         case 'payment_intent.payment_failed': {
-          const intent = event.data.object as { metadata?: { orderId?: string } };
+          const intent = event.data.object as {
+            metadata?: { orderId?: string };
+          };
           this.logger.warn(
             `Echec de paiement signale pour la commande ${intent?.metadata?.orderId ?? 'inconnue'}`,
           );

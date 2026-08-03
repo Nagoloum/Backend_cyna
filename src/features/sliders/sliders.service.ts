@@ -140,7 +140,8 @@ export class SlidersService {
         return ApiResponse.error('Slider introuvable, mise à jour impossible.');
       }
 
-      // La suite de votre logique pour l'image...
+      // L'ancienne image n'est supprimée de Cloudinary qu'une fois la mise à
+      // jour en base réussie.
       if (file && oldImageUrl) {
         await this.cloudinaryService.deleteByUrl(oldImageUrl);
       }

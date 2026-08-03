@@ -19,6 +19,9 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      # La documentation Swagger reste désactivée en production (voir main.ts).
+      - key: SWAGGER_ENABLED
+        value: 'false'
       - key: FRONTEND_URL
         value: https://cynaapp.vercel.app
       - key: APP_BASE_URL

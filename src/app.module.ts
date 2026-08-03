@@ -45,7 +45,7 @@ const isProduction = process.env.NODE_ENV === 'production';
                 winston.format.timestamp({ format: 'HH:mm:ss' }),
                 winston.format.printf(
                   ({ level, message, timestamp, context }) =>
-                    `${timestamp} [${context ?? 'App'}] ${level}: ${message}`,
+                    `${String(timestamp)} [${(context as string) ?? 'App'}] ${level}: ${String(message)}`,
                 ),
               ),
         }),
@@ -57,21 +57,16 @@ const isProduction = process.env.NODE_ENV === 'production';
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
     // forRootAsync : l'URI est resolue AU MOMENT de la connexion. resolveAtlasUrl
     // transforme mongodb+srv:// en mongodb:// direct (hotes resolus, parametres
-    // dedupliques -> plus d'« authSource » en double). Sur Vercel on garde l'URL
-    // SRV brute (resolveur natif Linux). autoIndex desactive sur Vercel (les
-    // index existent deja dans Atlas). retryAttempts pour la resilience.
+    // dedupliques, plus d'« authSource » en double). retryAttempts pour la
+    // resilience au demarrage.
     MongooseModule.forRootAsync({
-      useFactory: async () => {
-        const raw = process.env.DATABASE_URL ?? '';
-        const uri = process.env.VERCEL ? raw : await resolveAtlasUrl(raw);
-        return {
-          uri,
-          autoIndex: !process.env.VERCEL,
-          serverSelectionTimeoutMS: 10000,
-          retryAttempts: 3,
-          retryDelay: 1500,
-        };
-      },
+      useFactory: async () => ({
+        uri: await resolveAtlasUrl(process.env.DATABASE_URL ?? ''),
+        autoIndex: true,
+        serverSelectionTimeoutMS: 10000,
+        retryAttempts: 3,
+        retryDelay: 1500,
+      }),
     }),
     AnalyticsModule,
     UsersModule,

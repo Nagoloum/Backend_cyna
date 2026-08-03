@@ -1,5 +1,5 @@
 import { escapeRegex } from '../../shared/generic/escape-regex';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { InjectModel } from '@nestjs/mongoose';
@@ -13,6 +13,8 @@ import { Product } from '../products/entities/product.entity';
 import { Service } from '../services/entities/service.entity';
 @Injectable()
 export class CategoriesService {
+  private readonly logger = new Logger(CategoriesService.name);
+
   constructor(
     @InjectModel(Category.name) private categoryModel: Model<Category>,
     @InjectModel(Product.name) private productModel: Model<Product>,
@@ -284,7 +286,7 @@ export class CategoriesService {
         await this.cloudinaryService.deleteByUrl(newUploadedUrl);
       }
 
-      console.error(error instanceof Error ? error.message : error);
+      this.logger.error(error instanceof Error ? error.message : String(error));
       return ApiResponse.error('Erreur lors de la mise à jour');
     }
   }
@@ -308,7 +310,7 @@ export class CategoriesService {
 
       return ApiResponse.success('Catégorie supprimée avec succès');
     } catch (error) {
-      console.error(error instanceof Error ? error.message : error);
+      this.logger.error(error instanceof Error ? error.message : String(error));
       return ApiResponse.error('Erreur lors de la suppression de la catégorie');
     }
   }

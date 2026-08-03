@@ -59,8 +59,7 @@ export class CategoriesController {
     return this.categoriesService.create(createCategoryDto, files);
   }
 
-  // @AuthorizeRoles(UserRoles.ADMIN)
-  // @UseGuards(AuthGuard, AuthorizeGuard)
+  // Endpoint public : le catalogue de catégories est consultable sans compte.
   @Get()
   findAll(@Query() queryDto: QueryDto) {
     return this.categoriesService.findAll(queryDto);

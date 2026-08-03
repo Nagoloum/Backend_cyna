@@ -52,9 +52,7 @@ describe('HttpStatusInterceptor', () => {
 
   it('défaut 400 quand aucun statusCode explicite', async () => {
     const body = ApiResponse.error('mauvaise requête');
-    await lastValueFrom(
-      interceptor.intercept(makeCtx(res), makeHandler(body)),
-    );
+    await lastValueFrom(interceptor.intercept(makeCtx(res), makeHandler(body)));
     expect(res.status).toHaveBeenCalledWith(400);
   });
 });

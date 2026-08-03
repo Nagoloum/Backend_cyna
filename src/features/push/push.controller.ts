@@ -6,7 +6,12 @@ import {
   UseGuards,
   ValidationPipe,
 } from '@nestjs/common';
-import { IsString, IsObject, ValidateNested, IsOptional } from 'class-validator';
+import {
+  IsString,
+  IsObject,
+  ValidateNested,
+  IsOptional,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AuthGuard } from '../../shared/guards/auth.guard';
@@ -67,7 +72,7 @@ export class PushController {
     return ApiResponse.success('Souscription supprimée');
   }
 
-  // Diffusion manuelle (admin) — utile pour tester ou pour des annonces globales.
+  // Diffusion manuelle (admin), utile pour tester ou pour des annonces globales.
   @AuthorizeRoles(UserRoles.ADMIN)
   @UseGuards(AuthGuard, AuthorizeGuard)
   @Post('broadcast')

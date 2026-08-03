@@ -1,10 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import PDFDocument = require('pdfkit');
+import PDFDocument from 'pdfkit';
 
 /**
- * Génération de factures PDF en mémoire (Buffer), sans écriture sur disque :
- * indispensable en environnement serverless Vercel (filesystem en lecture
- * seule). Le PDF est produit a la volee a chaque telechargement a partir de la
+ * Génération de factures PDF en mémoire (Buffer), sans écriture sur disque.
+ * Le PDF est produit a la volee a chaque telechargement a partir de la
  * commande, il n'y a donc rien a stocker ni a archiver cote serveur.
  */
 @Injectable()
@@ -111,7 +110,10 @@ export class InvoiceService {
       doc.fillColor('#444').fontSize(10);
       doc.text(String(name), 50, rowY, { width: 195 });
       doc.text(InvoiceService.periodeLabel(a?.periode), 250, rowY);
-      doc.text(String(a?.quantity ?? 1), 360, rowY, { width: 40, align: 'right' });
+      doc.text(String(a?.quantity ?? 1), 360, rowY, {
+        width: 40,
+        align: 'right',
+      });
       doc.text(InvoiceService.euro(a?.price), 450, rowY, {
         width: 95,
         align: 'right',

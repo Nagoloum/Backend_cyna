@@ -1,8 +1,8 @@
 /*
  * Sauvegarde de la base MongoDB via `mongodump` (archive gzip).
  *
- * Prérequis : MongoDB Database Tools installés (mongodump dans le PATH) —
- * https://www.mongodb.com/docs/database-tools/installation/
+ * Prérequis : MongoDB Database Tools installés (mongodump dans le PATH).
+ * Voir https://www.mongodb.com/docs/database-tools/installation/
  *
  * Usage :
  *   node scripts/backup.js
@@ -30,7 +30,7 @@ fs.mkdirSync(backupDir, { recursive: true });
 const stamp = new Date().toISOString().replace(/[:.]/g, '-');
 const archive = path.join(backupDir, `cyna-${stamp}.gz`);
 
-console.log(`Sauvegarde en cours → ${archive}`);
+console.log(`Sauvegarde en cours : ${archive}`);
 const res = spawnSync(
   'mongodump',
   [`--uri=${uri}`, `--archive=${archive}`, '--gzip'],
@@ -46,4 +46,4 @@ if (res.status !== 0) {
   console.error(`mongodump a échoué (code ${res.status}).`);
   process.exit(res.status || 1);
 }
-console.log(`✅ Sauvegarde terminée : ${archive}`);
+console.log(`Sauvegarde terminée : ${archive}`);

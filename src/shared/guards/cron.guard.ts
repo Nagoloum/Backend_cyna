@@ -6,10 +6,10 @@ import {
 } from '@nestjs/common';
 
 /**
- * Protège les endpoints de cron : seuls les appels portant le secret CRON_SECRET
- * sont acceptés. Vercel Cron ajoute automatiquement l'en-tête
- * `Authorization: Bearer <CRON_SECRET>` quand la variable est définie sur le
- * projet. Sans secret configuré, l'accès est refusé (jamais ouvert par défaut).
+ * Protège les endpoints de cron : seuls les appels portant l'en-tête
+ * `Authorization: Bearer <CRON_SECRET>` sont acceptés (voir le workflow
+ * GitHub Actions cron-abonnements.yml). Sans secret configuré, l'accès est
+ * refusé (jamais ouvert par défaut).
  */
 @Injectable()
 export class CronGuard implements CanActivate {

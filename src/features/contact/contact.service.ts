@@ -1,8 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { CreateContactDto } from './dto/create-contact.dto';
 import { UpdateContactDto } from './dto/update-contact.dto';
 import { InjectModel } from '@nestjs/mongoose';
-import { concat } from 'rxjs';
 import { Contact, StatutContact } from './entities/contact.entity';
 import { Model, isValidObjectId } from 'mongoose';
 import { ApiResponse } from '../../shared/responses/api-response';
@@ -13,18 +12,20 @@ import { escapeRegex } from '../../shared/generic/escape-regex';
 
 @Injectable()
 export class ContactService {
+  private readonly logger = new Logger(ContactService.name);
+
   constructor(
     @InjectModel(Contact.name) private contactModel: Model<Contact>,
     private readonly analyticsService: AnalyticsService,
     private readonly sendEmailService: SendEmailService,
-  ) { }
+  ) {}
 
   async create(createContactDto: CreateContactDto) {
     const newContact = new this.contactModel(createContactDto);
     const data = await newContact.save();
     // Evenement metier (sans donnee personnelle) : message de contact envoye.
     this.analyticsService.track('contact_submitted');
-    return ApiResponse.success('Contact ajouté');;
+    return ApiResponse.success('Contact ajouté');
   }
 
   // Rétro-compatible : sans page/limit → liste complète ; avec → pagination
@@ -44,10 +45,7 @@ export class ContactService {
           .find(filter)
           .sort({ createdAt: -1 })
           .exec();
-        return ApiResponse.success(
-          'Liste des contacts récupérée',
-          allContacts,
-        );
+        return ApiResponse.success('Liste des contacts récupérée', allContacts);
       }
 
       const p = Math.max(1, Number(page) || 1);
@@ -79,11 +77,10 @@ export class ContactService {
   async findOne(id: string) {
     const contact = await this.contactModel.findById(id).exec();
     if (!contact) {
-      return ApiResponse.success("Aucun contact trouvé");
+      return ApiResponse.success('Aucun contact trouvé');
     }
     return ApiResponse.success('Contact récupéré avec succès', contact);
   }
-
 
   async update(id: string, updateContactDto: UpdateContactDto) {
     const updatedContact = await this.contactModel
@@ -91,9 +88,14 @@ export class ContactService {
       .exec();
 
     if (!updatedContact) {
-      return ApiResponse.success(`Impossible de modifier : Contact ${id} introuvable`);
+      return ApiResponse.success(
+        `Impossible de modifier : Contact ${id} introuvable`,
+      );
     }
-    return ApiResponse.success('Contact mis à jour avec succès', updatedContact);
+    return ApiResponse.success(
+      'Contact mis à jour avec succès',
+      updatedContact,
+    );
   }
 
   // Réponse du support : enregistre la réponse, passe le ticket à REPLIED et
@@ -124,7 +126,7 @@ export class ContactService {
           contact.message,
         );
       } catch {
-        console.error('[CONTACT] Echec envoi email de reponse');
+        this.logger.error("Echec d'envoi de l'email de réponse");
       }
 
       return ApiResponse.success('Réponse envoyée', contact);

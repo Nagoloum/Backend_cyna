@@ -10,11 +10,6 @@ let enabled = false;
 export function initSentry(): void {
   const dsn = process.env.SENTRY_DSN;
   if (!dsn) return;
-  // Sur Vercel (serverless), l'auto-instrumentation OpenTelemetry de @sentry/node
-  // (patch http/dns/net/mongodb au chargement) peut BLOQUER la connexion Mongoose
-  // au demarrage a froid (connexion figee en readyState=2 -> 500). On desactive
-  // donc Sentry backend sur Vercel (SENTRY_ENABLED=true pour forcer si besoin).
-  if (process.env.VERCEL && process.env.SENTRY_ENABLED !== 'true') return;
   Sentry.init({
     dsn,
     environment: process.env.NODE_ENV ?? 'development',

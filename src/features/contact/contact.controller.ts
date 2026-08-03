@@ -66,7 +66,7 @@ export class ContactController {
     return this.contactService.reply(id, body?.message);
   }
 
-  // Changer le statut d'un ticket (NEW/READ/REPLIED/CLOSED) — admin.
+  // Changer le statut d'un ticket (NEW/READ/REPLIED/CLOSED), admin uniquement.
   @ApiBearerAuth()
   @AuthorizeRoles(UserRoles.ADMIN)
   @UseGuards(AuthGuard, AuthorizeGuard)

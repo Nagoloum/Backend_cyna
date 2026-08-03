@@ -66,7 +66,9 @@ export class AuditService {
         totalPage: Math.ceil(total / l),
       });
     } catch (_error) {
-      return ApiResponse.error("Erreur lors de la récupération du journal d'audit");
+      return ApiResponse.error(
+        "Erreur lors de la récupération du journal d'audit",
+      );
     }
   }
 }

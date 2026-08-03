@@ -176,7 +176,12 @@ export class SendEmailService {
   // Confirmation de renouvellement d'abonnement.
   async sendRenewalConfirmation(
     email: string,
-    info: { periode?: unknown; amount?: unknown; dateFin?: string; productName?: string },
+    info: {
+      periode?: unknown;
+      amount?: unknown;
+      dateFin?: string;
+      productName?: string;
+    },
   ) {
     const periode = SendEmailService.periodeLabel(info?.periode);
     const dateFin = info?.dateFin

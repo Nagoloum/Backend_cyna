@@ -28,7 +28,9 @@ export class CouponsService {
   }
 
   private normalizeCode(code: string): string {
-    return String(code ?? '').trim().toUpperCase();
+    return String(code ?? '')
+      .trim()
+      .toUpperCase();
   }
 
   async create(dto: CreateCouponDto) {
@@ -111,7 +113,10 @@ export class CouponsService {
   // Valide un code pour un montant HT donné et calcule la remise. Logique pure
   // réutilisée à la fois par l'endpoint public et par la création de commande
   // (la remise authoritative est toujours recalculée côté serveur).
-  async validateCode(code: string, amountHT: number): Promise<CouponValidation> {
+  async validateCode(
+    code: string,
+    amountHT: number,
+  ): Promise<CouponValidation> {
     const normalized = this.normalizeCode(code);
     if (!normalized) return { valid: false, message: 'Code promo requis' };
 
@@ -127,7 +132,10 @@ export class CouponsService {
       return { valid: false, message: 'Ce code promo a expiré' };
     }
     if (coupon.maxUsage > 0 && coupon.usedCount >= coupon.maxUsage) {
-      return { valid: false, message: "Ce code promo a atteint sa limite d'utilisation" };
+      return {
+        valid: false,
+        message: "Ce code promo a atteint sa limite d'utilisation",
+      };
     }
     if (coupon.minAmount > 0 && Number(amountHT) < coupon.minAmount) {
       return {

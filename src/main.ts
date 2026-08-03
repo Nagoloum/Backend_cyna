@@ -1,58 +1,34 @@
 import * as dns from 'dns';
 
-// Force des serveurs DNS publics UNIQUEMENT en local (Windows) ou la resolution
-// SRV native d'Atlas echoue. Sur Vercel (Linux), le resolveur natif fonctionne
-// et forcer 8.8.8.8 fait PENDRE la resolution SRV du driver mongo au demarrage
-// (connexion bloquee en readyState=2). On laisse donc le DNS natif sur Vercel.
-if (!process.env.VERCEL) {
-  dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1', '1.0.0.1']);
-}
+// Force des serveurs DNS publics : la resolution SRV d'Atlas echoue avec
+// certains resolveurs (constate en local sous Windows). Doit etre fait avant
+// toute resolution DNS du driver MongoDB.
+dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1', '1.0.0.1']);
 
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ValidationPipe } from '@nestjs/common';
-import {
-  ExpressAdapter,
-  NestExpressApplication,
-} from '@nestjs/platform-express';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import { GlobalExceptionFilter } from './shared/filters/global-exception.filter';
 import { initSentry } from './shared/sentry';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 
-// Initialise Sentry au plus tôt (no-op sans SENTRY_DSN).
+// Initialise Sentry au plus tot (no-op sans SENTRY_DSN).
 initSentry();
 
-/**
- * Crée et configure l'application NestJS.
- *
- * @param expressInstance  instance Express existante (utilisée par le handler
- *   serverless Vercel). Si absente, Nest crée sa propre instance (mode local).
- *
- * NB : cette fonction n'appelle NI `listen()` NI `init()`. C'est à l'appelant
- * de choisir : `listen()` en local, `init()` en serverless.
- */
-export async function createNestApp(
-  expressInstance?: unknown,
-): Promise<NestExpressApplication> {
-  // La resolution DNS Atlas est desormais faite dans MongooseModule.forRootAsync
-  // (app.module.ts) : la connexion utilise ainsi REELLEMENT l'URL resolue au
-  // moment ou elle est etablie (le forRoot synchrone capturait l'URL trop tot).
+async function bootstrap() {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    // rawBody est requis pour verifier la signature des webhooks Stripe.
+    rawBody: true,
+  });
 
-  const app = expressInstance
-    ? await NestFactory.create<NestExpressApplication>(
-        AppModule,
-        new ExpressAdapter(expressInstance as any),
-        { rawBody: true },
-      )
-    : await NestFactory.create<NestExpressApplication>(AppModule, {
-        rawBody: true,
-      });
+  const isProduction = process.env.NODE_ENV === 'production';
 
-  // Headers de sécurité HTTP. CSP désactivée (API JSON, pas de pages HTML
-  // hormis Swagger qui charge ses assets depuis un CDN).
+  // Headers de sécurité HTTP. CSP désactivée : API JSON, pas de pages HTML
+  // hormis Swagger (réservé au développement).
   app.use(
     helmet({
       contentSecurityPolicy: false,
@@ -61,13 +37,17 @@ export async function createNestApp(
   );
 
   // CORS restreint aux origines connues (configurable via FRONTEND_URL,
-  // plusieurs origines séparées par des virgules acceptées). Le front de
-  // production (Vercel) est toujours autorisé en plus des origines locales.
+  // plusieurs origines séparées par des virgules acceptées). Les origines
+  // locales ne sont autorisées qu'en dehors de la production.
+  const devOrigins = isProduction
+    ? ''
+    : ',http://localhost:5173,http://localhost';
   const allowedOrigins = [
     ...new Set(
       (
         (process.env.FRONTEND_URL ?? '') +
-        ',http://localhost:5173,http://localhost,https://cynaapp.vercel.app'
+        ',https://cynaapp.vercel.app' +
+        devOrigins
       )
         .split(',')
         .map((o) => o.trim())
@@ -83,10 +63,9 @@ export async function createNestApp(
   });
 
   // Analyse les cookies de chaque requête entrante (nécessaire pour le mode
-  // httpOnly cookie — le JWT est lu depuis req.cookies.accessToken).
+  // httpOnly cookie : le JWT est lu depuis req.cookies.accessToken).
   app.use(cookieParser());
 
-  // prefix API
   app.setGlobalPrefix('api');
   // whitelist : supprime silencieusement les champs absents des DTOs
   // (anti mass-assignment) ; transform : caste les types déclarés.
@@ -94,34 +73,22 @@ export async function createNestApp(
   app.useGlobalFilters(new GlobalExceptionFilter());
   app.useLogger(app.get(WINSTON_MODULE_NEST_PROVIDER));
 
-  // === Swagger Configuration ===
-  // Desactive par defaut sur Vercel : la generation du document Swagger scanne
-  // toutes les routes/DTO a CHAQUE demarrage a froid serverless, ce qui est
-  // couteux et suspecte de bloquer le bootstrap. Pour l'activer sur Vercel,
-  // definir explicitement SWAGGER_ENABLED=true. En local, actif par defaut.
-  const swaggerEnabled = process.env.VERCEL
+  // Swagger : actif par défaut en développement, désactivé par défaut en
+  // production (la documentation complète de l'API ne doit pas être exposée
+  // publiquement). Forçage possible dans les deux sens via SWAGGER_ENABLED.
+  const swaggerEnabled = isProduction
     ? process.env.SWAGGER_ENABLED === 'true'
     : process.env.SWAGGER_ENABLED !== 'false';
   if (swaggerEnabled) {
     const config = new DocumentBuilder()
       .setTitle('CYNA API')
-      .setDescription('The CYNA API description')
+      .setDescription('API du site e-commerce Cyna')
       .setVersion('1.0')
       .addBearerAuth()
       .build();
 
     const document = SwaggerModule.createDocument(app, config);
-    // Sur Vercel (serverless), les assets statiques de Swagger UI ne sont pas
-    // embarqués dans la fonction → on les charge depuis un CDN (même version que
-    // swagger-ui-dist installé) pour que la page /api/docs s'affiche correctement.
-    const SWAGGER_UI_VERSION = '5.30.2';
-    const SWAGGER_CDN = `https://cdn.jsdelivr.net/npm/swagger-ui-dist@${SWAGGER_UI_VERSION}`;
     SwaggerModule.setup('api/docs', app, document, {
-      customCssUrl: `${SWAGGER_CDN}/swagger-ui.css`,
-      customJs: [
-        `${SWAGGER_CDN}/swagger-ui-bundle.js`,
-        `${SWAGGER_CDN}/swagger-ui-standalone-preset.js`,
-      ],
       swaggerOptions: {
         tagsSorter: 'alpha',
         operationsSorter: 'alpha',
@@ -129,21 +96,7 @@ export async function createNestApp(
     });
   }
 
-  // NB : le stockage local des images (dossier `storage/`) a été remplacé par
-  // Cloudinary (cf. CloudinaryService) car le système de fichiers est en
-  // lecture seule sur Vercel.
-
-  return app;
-}
-
-async function bootstrap() {
-  const app = await createNestApp();
   await app.listen(process.env.PORT ?? 3000);
 }
 
-// En local / hébergement classique : on démarre un serveur HTTP.
-// Sur Vercel (serverless), c'est `api/index.js` qui pilote l'app, donc on
-// n'appelle pas listen() pour éviter d'ouvrir un port.
-if (!process.env.VERCEL) {
-  bootstrap();
-}
+void bootstrap();

@@ -24,7 +24,7 @@ export class ServicesService {
         name: createServiceDto.name,
       });
       if (existingService) {
-        return ApiResponse.error('Ce service existe deja');
+        return ApiResponse.error('Ce service existe déjà');
       }
       const slug = this.sharedService.generateSlug(createServiceDto.name);
       const categoryId = await resolveIdOrThrow(
@@ -41,9 +41,7 @@ export class ServicesService {
       const savedService = await createdService.save();
       return ApiResponse.success('Service crée', savedService);
     } catch (error) {
-      return ApiResponse.error(
-        'Erreur lors de la création du service',
-      );
+      return ApiResponse.error('Erreur lors de la création du service');
     }
   }
 
@@ -127,7 +125,9 @@ export class ServicesService {
         if (dup) {
           return ApiResponse.error('Un service avec ce nom existe déjà');
         }
-        updatePayload.slug = this.sharedService.generateSlug(updateServiceDto.name);
+        updatePayload.slug = this.sharedService.generateSlug(
+          updateServiceDto.name,
+        );
       }
 
       const categoryId = await resolveIdOrThrow(

@@ -26,7 +26,7 @@ export class AdresseFacturationsService {
       });
 
       if (exist) {
-        return ApiResponse.error('Cette adresse de facturation existe deja');
+        return ApiResponse.error('Cette adresse de facturation existe déjà');
       }
 
       if (createAdresseFacturationDto.isDefault) {
@@ -42,7 +42,7 @@ export class AdresseFacturationsService {
       });
       const savedAdresseFacturation = await createAdresseFacturation.save();
       return ApiResponse.success(
-        'Adresse de facturation crée avec success',
+        'Adresse de facturation créée avec succès',
         savedAdresseFacturation,
       );
     } catch (error) {
@@ -154,12 +154,12 @@ export class AdresseFacturationsService {
         )
         .sort({ isDefault: -1, createdAt: -1 });
       return ApiResponse.success(
-        'Adresse de facturation recuperee avec success',
+        'Adresse de facturation récupérée avec succès',
         adresseFacturations,
       );
     } catch (error) {
       return ApiResponse.error(
-        "Erreur lors de la recupération de l'adresse de facturation de l'utilisateur",
+        "Erreur lors de la récupération de l'adresse de facturation de l'utilisateur",
       );
     }
   }
@@ -172,7 +172,7 @@ export class AdresseFacturationsService {
       const adresseFacturation = await this.adresseModel.findById(id);
 
       if (!adresseFacturation) {
-        return ApiResponse.error('Adresse de facturation non trouvee');
+        return ApiResponse.error('Adresse de facturation non trouvée');
       }
       // --- 2) Autorisations ---
       const isAdmin = currentUser?.data?.role === UserRoles.ADMIN;
@@ -184,12 +184,12 @@ export class AdresseFacturationsService {
         );
       }
       return ApiResponse.success(
-        'Adresse de facturation recuperee avec success',
+        'Adresse de facturation récupérée avec succès',
         adresseFacturation,
       );
     } catch (error) {
       return ApiResponse.error(
-        "Erreur lors de la recupération de l'adresse de facturation",
+        "Erreur lors de la récupération de l'adresse de facturation",
       );
     }
   }
@@ -209,7 +209,7 @@ export class AdresseFacturationsService {
       );
 
       if (!adresseFacturation) {
-        return ApiResponse.error('Adresse de facturation non trouvee');
+        return ApiResponse.error('Adresse de facturation non trouvée');
       }
       // --- 2) Autorisations ---
       const isAdmin = currentUser?.data?.role === UserRoles.ADMIN;
@@ -222,7 +222,7 @@ export class AdresseFacturationsService {
       }
 
       return ApiResponse.success(
-        'Adresse de facturation mise a jour avec success',
+        'Adresse de facturation mise à jour avec succès',
         await this.adresseModel.findByIdAndUpdate(id, {
           $set: updateAdresseFacturationDto,
         }),
@@ -245,7 +245,7 @@ export class AdresseFacturationsService {
       );
 
       if (!adresseFacturation) {
-        return ApiResponse.error('Adresse de facturation non trouvee');
+        return ApiResponse.error('Adresse de facturation non trouvée');
       }
       // --- 2) Autorisations ---
       const isAdmin = currentUser?.data?.role === UserRoles.ADMIN;
@@ -259,7 +259,7 @@ export class AdresseFacturationsService {
       await this.adresseModel.findByIdAndDelete(id);
 
       return ApiResponse.success(
-        'Adresse de facturation supprimee avec success',
+        'Adresse de facturation supprimée avec succès',
       );
     } catch (error) {
       return ApiResponse.error(

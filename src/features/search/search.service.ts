@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { CreateSearchDto } from './dto/create-search.dto';
 import { Product } from '../products/entities/product.entity';
-import { Model, Types } from 'mongoose'; // Import de Types pour la conversion
+import { Model, Types } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
 
 @Injectable()
@@ -9,8 +9,6 @@ export class SearchService {
   constructor(
     @InjectModel(Product.name) private readonly productModel: Model<Product>,
   ) {}
-
- // ... (imports identiques)
 
   async advancedSearch(dto: CreateSearchDto) {
     const pipeline: any[] = [];
@@ -34,32 +32,32 @@ export class SearchService {
           as: 'category_info',
         },
       },
-      { $unwind: { path: '$category_info', preserveNullAndEmptyArrays: true } }
+      { $unwind: { path: '$category_info', preserveNullAndEmptyArrays: true } },
     );
 
     // 2. FILTRAGE
     const match: any = {
       stock: { $gt: 0 },
-      'service_info.available': true
+      'service_info.available': true,
     };
 
-    // Filtrage multi-catégories (Correction ici)
+    // Filtrage multi-catégories : seuls les ObjectId valides sont convertis,
+    // un identifiant malformé ferait lever Types.ObjectId.
     if (dto.categories && dto.categories.length > 0) {
-      // On filtre les IDs valides pour éviter le crash de Types.ObjectId
       const categoryObjectIds = dto.categories
-        .filter(id => Types.ObjectId.isValid(id))
-        .map(id => new Types.ObjectId(id));
+        .filter((id) => Types.ObjectId.isValid(id))
+        .map((id) => new Types.ObjectId(id));
 
       if (categoryObjectIds.length > 0) {
         match['category_info._id'] = { $in: categoryObjectIds };
       }
     }
 
-    // Filtrage multi-services (Correction ici)
+    // Filtrage multi-services, même principe que les catégories.
     if (dto.services && dto.services.length > 0) {
       const serviceObjectIds = dto.services
-        .filter(id => Types.ObjectId.isValid(id))
-        .map(id => new Types.ObjectId(id));
+        .filter((id) => Types.ObjectId.isValid(id))
+        .map((id) => new Types.ObjectId(id));
 
       if (serviceObjectIds.length > 0) {
         match['service_info._id'] = { $in: serviceObjectIds };
@@ -69,13 +67,15 @@ export class SearchService {
     // Filtres de prix
     if (dto.minPrice !== undefined || dto.maxPrice !== undefined) {
       match.priceMonth = {};
-      if (dto.minPrice !== undefined) match.priceMonth.$gte = Number(dto.minPrice);
-      if (dto.maxPrice !== undefined) match.priceMonth.$lte = Number(dto.maxPrice);
+      if (dto.minPrice !== undefined)
+        match.priceMonth.$gte = Number(dto.minPrice);
+      if (dto.maxPrice !== undefined)
+        match.priceMonth.$lte = Number(dto.maxPrice);
     }
 
     pipeline.push({ $match: match });
 
-    // 3. SCORE DE RECHERCHE (TEXTE) - Inchangé
+    // 3. SCORE DE RECHERCHE (TEXTE)
     if (dto.text) {
       const term = dto.text.toLowerCase().trim();
       const safeTerm = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -86,24 +86,101 @@ export class SearchService {
           searchScore: {
             $switch: {
               branches: [
-                { case: { $or: [{ $eq: [{ $toLower: '$name' }, term] }, { $eq: [{ $toLower: '$service_info.name' }, term] }] }, then: 100 },
-                { case: { $or: [{ $regexMatch: { input: '$name', regex: `^${fuzzyTerm}.`, options: 'i' } }, { $regexMatch: { input: '$service_info.name', regex: `^${fuzzyTerm}.`, options: 'i' } }] }, then: 80 },
-                { case: { $or: [{ $regexMatch: { input: '$name', regex: `^${safeTerm}`, options: 'i' } }, { $regexMatch: { input: '$service_info.name', regex: `^${safeTerm}`, options: 'i' } }] }, then: 60 },
-                { case: { $or: [{ $regexMatch: { input: '$name', regex: safeTerm, options: 'i' } }, { $regexMatch: { input: '$service_info.name', regex: safeTerm, options: 'i' } }] }, then: 30 },
-                { case: { $regexMatch: { input: '$service_info.description', regex: safeTerm, options: 'i' } }, then: 10 }
+                {
+                  case: {
+                    $or: [
+                      { $eq: [{ $toLower: '$name' }, term] },
+                      { $eq: [{ $toLower: '$service_info.name' }, term] },
+                    ],
+                  },
+                  then: 100,
+                },
+                {
+                  case: {
+                    $or: [
+                      {
+                        $regexMatch: {
+                          input: '$name',
+                          regex: `^${fuzzyTerm}.`,
+                          options: 'i',
+                        },
+                      },
+                      {
+                        $regexMatch: {
+                          input: '$service_info.name',
+                          regex: `^${fuzzyTerm}.`,
+                          options: 'i',
+                        },
+                      },
+                    ],
+                  },
+                  then: 80,
+                },
+                {
+                  case: {
+                    $or: [
+                      {
+                        $regexMatch: {
+                          input: '$name',
+                          regex: `^${safeTerm}`,
+                          options: 'i',
+                        },
+                      },
+                      {
+                        $regexMatch: {
+                          input: '$service_info.name',
+                          regex: `^${safeTerm}`,
+                          options: 'i',
+                        },
+                      },
+                    ],
+                  },
+                  then: 60,
+                },
+                {
+                  case: {
+                    $or: [
+                      {
+                        $regexMatch: {
+                          input: '$name',
+                          regex: safeTerm,
+                          options: 'i',
+                        },
+                      },
+                      {
+                        $regexMatch: {
+                          input: '$service_info.name',
+                          regex: safeTerm,
+                          options: 'i',
+                        },
+                      },
+                    ],
+                  },
+                  then: 30,
+                },
+                {
+                  case: {
+                    $regexMatch: {
+                      input: '$service_info.description',
+                      regex: safeTerm,
+                      options: 'i',
+                    },
+                  },
+                  then: 10,
+                },
               ],
-              default: 0
-            }
-          }
-        }
+              default: 0,
+            },
+          },
+        },
       });
       pipeline.push({ $match: { searchScore: { $gt: 0 } } });
     } else {
       pipeline.push({ $addFields: { searchScore: 0 } });
     }
 
-    // 4. TRI — applique reellement le critere demande (auparavant ignore).
-    // Sans critere explicite : pertinence (score) puis nouveaute.
+    // 4. TRI : applique le critère demandé. Sans critère explicite,
+    // pertinence (score) puis nouveauté.
     const direction = dto.sortOrder === 'desc' ? -1 : 1;
     let sortStage: Record<string, 1 | -1>;
     switch (dto.sortBy) {

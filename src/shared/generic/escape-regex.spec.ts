@@ -12,7 +12,7 @@ describe('escapeRegex', () => {
     expect(escapeRegex('Cyna SOC 2026')).toBe('Cyna SOC 2026');
   });
 
-  it("neutralise une entrée de type ReDoS (le résultat est un littéral sûr)", () => {
+  it('neutralise une entrée de type ReDoS (le résultat est un littéral sûr)', () => {
     const malicious = '(a+)+$';
     const escaped = escapeRegex(malicious);
     // La chaîne échappée, compilée en RegExp, matche le littéral exact et non le motif.

@@ -12,8 +12,6 @@ services:
       APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}
     ports:
       - '${API_PORT:-3000}:3000'
-    volumes:
-      - storage_data:/app/storage
     depends_on:
       - mongo
     networks:
@@ -37,6 +35,4 @@ networks:
 
 volumes:
   mongodb_data:
-    driver: local
-  storage_data:
     driver: local

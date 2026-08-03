@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { isValidObjectId, Model, Types } from 'mongoose';
 import { Commande } from './entities/commande.entity';
@@ -20,6 +20,8 @@ import { SendEmailService } from '../../shared/services/sendemail.service';
  */
 @Injectable()
 export class AbonnementsService {
+  private readonly logger = new Logger(AbonnementsService.name);
+
   constructor(
     @InjectModel(Commande.name) private readonly commandeModel: Model<Commande>,
     @InjectModel(CarteBancaire.name)
@@ -50,13 +52,21 @@ export class AbonnementsService {
       // Renvoie les dates brutes (ISO) : le frontend les formate et calcule
       // la progression. Les prix produit sont inclus pour l'aperçu modif.
       const flat = commandes.flatMap((c) =>
-        (c.abonnements ?? []).map((ab) => ({ ...ab, commandeReference: c.reference })),
+        (c.abonnements ?? []).map((ab) => ({
+          ...ab,
+          commandeReference: c.reference,
+        })),
       );
 
-      return ApiResponse.success("Abonnements de l'utilisateur récupérés", flat);
+      return ApiResponse.success(
+        "Abonnements de l'utilisateur récupérés",
+        flat,
+      );
     } catch (error) {
-      console.error(error instanceof Error ? error.message : error);
-      return ApiResponse.error("Erreur lors de la récupération des abonnements");
+      this.logger.error(error instanceof Error ? error.message : String(error));
+      return ApiResponse.error(
+        'Erreur lors de la récupération des abonnements',
+      );
     }
   }
 
@@ -128,12 +138,15 @@ export class AbonnementsService {
         return ApiResponse.error('Abonnement introuvable dans la commande');
       }
       if (abonnement.statut === StatutAbonnement.CANCELED) {
-        return ApiResponse.error('Impossible de modifier un abonnement résilié');
+        return ApiResponse.error(
+          'Impossible de modifier un abonnement résilié',
+        );
       }
 
-      const quantity = dto?.quantity !== undefined
-        ? Number(dto.quantity)
-        : abonnement.quantity;
+      const quantity =
+        dto?.quantity !== undefined
+          ? Number(dto.quantity)
+          : abonnement.quantity;
       if (!Number.isFinite(quantity) || quantity <= 0) {
         return ApiResponse.error('La quantité doit être supérieure à 0');
       }
@@ -185,7 +198,10 @@ export class AbonnementsService {
 
       await commande.save();
 
-      return ApiResponse.success('Abonnement mis à jour avec succès', abonnement);
+      return ApiResponse.success(
+        'Abonnement mis à jour avec succès',
+        abonnement,
+      );
     } catch {
       return ApiResponse.error("Erreur lors de la mise à jour de l'abonnement");
     }
@@ -289,7 +305,11 @@ export class AbonnementsService {
 
       return ApiResponse.error(
         "Le paiement du renouvellement n'a pas pu être finalisé",
-        { status: 'PENDING', abonnementId: id, paymentIntentId: paymentIntent.id },
+        {
+          status: 'PENDING',
+          abonnementId: id,
+          paymentIntentId: paymentIntent.id,
+        },
       );
     } catch (error) {
       return ApiResponse.error(
@@ -300,7 +320,11 @@ export class AbonnementsService {
   }
 
   // Finalise un renouvellement après authentification 3-D Secure côté frontend.
-  async confirmRenouvellement(id: string, paymentIntentId: string, currentUser: any) {
+  async confirmRenouvellement(
+    id: string,
+    paymentIntentId: string,
+    currentUser: any,
+  ) {
     try {
       if (!isValidObjectId(id)) {
         return ApiResponse.error("L'id de l'abonnement est invalide");
@@ -376,7 +400,9 @@ export class AbonnementsService {
     const now = new Date();
     const currentEnd = new Date(abonnement.dateFin);
     const base =
-      !Number.isNaN(currentEnd.getTime()) && currentEnd > now ? currentEnd : now;
+      !Number.isNaN(currentEnd.getTime()) && currentEnd > now
+        ? currentEnd
+        : now;
     abonnement.dateFin = this.addPeriod(base, abonnement.periode).toISOString();
     abonnement.statut = StatutAbonnement.ACTIVE;
   }
@@ -385,14 +411,18 @@ export class AbonnementsService {
     const d = new Date(date);
     if (Number.isNaN(d.getTime())) {
       const fallback = new Date();
-      periode === PeriodeAbonnement.ANNUEL
-        ? fallback.setFullYear(fallback.getFullYear() + 1)
-        : fallback.setMonth(fallback.getMonth() + 1);
+      if (periode === PeriodeAbonnement.ANNUEL) {
+        fallback.setFullYear(fallback.getFullYear() + 1);
+      } else {
+        fallback.setMonth(fallback.getMonth() + 1);
+      }
       return fallback;
     }
-    periode === PeriodeAbonnement.ANNUEL
-      ? d.setFullYear(d.getFullYear() + 1)
-      : d.setMonth(d.getMonth() + 1);
+    if (periode === PeriodeAbonnement.ANNUEL) {
+      d.setFullYear(d.getFullYear() + 1);
+    } else {
+      d.setMonth(d.getMonth() + 1);
+    }
     return d;
   }
 
@@ -414,7 +444,7 @@ export class AbonnementsService {
     try {
       await action();
     } catch {
-      console.error(`[EMAIL] Echec d'envoi (${context})`);
+      this.logger.error(`Echec d'envoi d'email (${context})`);
     }
   }
 }

@@ -82,10 +82,16 @@ export class PushService {
     await Promise.all(subs.map((sub) => this.sendOne(sub, payload)));
   }
 
-  private async sendOne(sub: PushSubscription, payload: PushPayload): Promise<void> {
+  private async sendOne(
+    sub: PushSubscription,
+    payload: PushPayload,
+  ): Promise<void> {
     try {
       await webpush.sendNotification(
-        { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+        {
+          endpoint: sub.endpoint,
+          keys: { p256dh: sub.p256dh, auth: sub.auth },
+        },
         JSON.stringify(payload),
       );
     } catch (err: any) {
@@ -93,7 +99,9 @@ export class PushService {
       if (err?.statusCode === 410 || err?.statusCode === 404) {
         await this.subModel.deleteOne({ _id: sub._id }).catch(() => {});
       } else {
-        this.logger.warn(`Push échoué (${sub.endpoint.slice(-20)}): ${err?.message}`);
+        this.logger.warn(
+          `Push échoué (${sub.endpoint.slice(-20)}): ${err?.message}`,
+        );
       }
     }
   }

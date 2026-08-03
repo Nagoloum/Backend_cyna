@@ -86,7 +86,7 @@ export class CarteBancairesService {
       });
 
       if (exist) {
-        return ApiResponse.error('Cette carte bancaire existe deja');
+        return ApiResponse.error('Cette carte bancaire existe déjà');
       }
 
       // On recupere la carte chez Stripe pour verifier son type et lire brand/last4/expiration.
@@ -151,7 +151,7 @@ export class CarteBancairesService {
 
       const savedCarteBancaire = await newCarteBancaire.save();
       return ApiResponse.success(
-        'Carte bancaire crée avec success',
+        'Carte bancaire créée avec succès',
         savedCarteBancaire,
       );
     } catch (error) {
@@ -174,12 +174,12 @@ export class CarteBancairesService {
         )
         .sort({ isDefault: -1, createdAt: -1 });
       return ApiResponse.success(
-        'Carte bancaire recuperee avec success',
+        'Carte bancaire récupérée avec succès',
         carteBancaire,
       );
     } catch (error) {
       return ApiResponse.error(
-        "Erreur lors de la recupération de la carte bancaire de l'utilisateur",
+        "Erreur lors de la récupération de la carte bancaire de l'utilisateur",
       );
     }
   }
@@ -193,7 +193,7 @@ export class CarteBancairesService {
       const carteBancaire = await this.carteBancaireModel.findById(id);
 
       if (!carteBancaire) {
-        return ApiResponse.error('Carte bancaire non trouvee');
+        return ApiResponse.error('Carte bancaire non trouvée');
       }
       // --- 2) Autorisations ---
       const isAdmin = currentUser?.data?.role === UserRoles.ADMIN;
@@ -205,12 +205,12 @@ export class CarteBancairesService {
         );
       }
       return ApiResponse.success(
-        'Carte bancaire recuperee avec success',
+        'Carte bancaire récupérée avec succès',
         carteBancaire,
       );
     } catch (error) {
       return ApiResponse.error(
-        'Erreur lors de la recupération de la carte bancaire',
+        'Erreur lors de la récupération de la carte bancaire',
       );
     }
   }
@@ -234,16 +234,16 @@ export class CarteBancairesService {
       );
 
       if (carteBancaire.matchedCount === 0) {
-        return ApiResponse.error('Carte bancaire par defaut non trouvee');
+        return ApiResponse.error('Carte bancaire par défaut non trouvée');
       }
 
       if (!carteBancaire) {
-        return ApiResponse.error('Carte bancaire non trouvee');
+        return ApiResponse.error('Carte bancaire non trouvée');
       }
       return ApiResponse.success('Carte bancaire par defaut mise a jour');
     } catch (error) {
       return ApiResponse.error(
-        'Erreur lors de la recupération de la carte bancaire',
+        'Erreur lors de la récupération de la carte bancaire',
       );
     }
   }
@@ -264,7 +264,7 @@ export class CarteBancairesService {
       );
 
       if (!carteBancaire) {
-        return ApiResponse.error('Carte bancaire non trouvee');
+        return ApiResponse.error('Carte bancaire non trouvée');
       }
       // --- 2) Autorisations ---
       const isAdmin = currentUser?.data?.role === UserRoles.ADMIN;
@@ -285,7 +285,7 @@ export class CarteBancairesService {
       }
 
       return ApiResponse.success(
-        'Carte bancaire mise a jour avec success',
+        'Carte bancaire mise à jour avec succès',
         await this.carteBancaireModel.findByIdAndUpdate(id, {
           $set: updateCarteBancaireDto,
         }),
@@ -309,7 +309,7 @@ export class CarteBancairesService {
       );
 
       if (!carteBancaire) {
-        return ApiResponse.error('carte bancaire non trouvee');
+        return ApiResponse.error('Carte bancaire non trouvée');
       }
       // --- 2) Autorisations ---
       const isAdmin = currentUser?.data?.role === UserRoles.ADMIN;
@@ -322,7 +322,7 @@ export class CarteBancairesService {
       }
       await this.carteBancaireModel.findByIdAndDelete(id);
 
-      return ApiResponse.success('Carte bancaire supprimee avec success');
+      return ApiResponse.success('Carte bancaire supprimée avec succès');
     } catch (error) {
       return ApiResponse.error(
         'Erreur lors de la suppression de la carte bancaire',

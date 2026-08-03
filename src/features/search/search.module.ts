@@ -6,10 +6,7 @@ import { Product, ProductSchema } from '../products/entities/product.entity';
 
 @Module({
   imports: [
-    // Indispensable pour injecter @InjectModel(Product.name) dans ton service
-    MongooseModule.forFeature([
-      { name: Product.name, schema: ProductSchema }
-    ]),
+    MongooseModule.forFeature([{ name: Product.name, schema: ProductSchema }]),
   ],
   controllers: [SearchController],
   providers: [SearchService],

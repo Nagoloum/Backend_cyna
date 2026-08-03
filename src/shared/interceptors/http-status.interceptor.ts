@@ -25,7 +25,7 @@ export class HttpStatusInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     return next.handle().pipe(
       map((body) => {
-        if (body && typeof body === 'object' && (body as any).success === false) {
+        if (body && typeof body === 'object' && body.success === false) {
           const res = context.switchToHttp().getResponse<Response>();
           const raw = body as Record<string, any>;
           const status =

@@ -1,5 +1,5 @@
 import { escapeRegex } from '../../shared/generic/escape-regex';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { isValidObjectId, Model, Types } from 'mongoose';
 import { CreateCommandeDto } from './dto/create-commande.dto';
@@ -41,6 +41,8 @@ type BuiltAbonnement = {
 
 @Injectable()
 export class CommandesService {
+  private readonly logger = new Logger(CommandesService.name);
+
   constructor(
     @InjectModel(Commande.name) private readonly commandeModel: Model<Commande>,
     @InjectModel(Product.name) private readonly productModel: Model<Product>,
@@ -84,9 +86,12 @@ export class CommandesService {
           '_id name stock priceMonth priceYear',
         );
         if (!product) {
-          return ApiResponse.error(`Produit introuvable: ${ab.productId}`);
+          return ApiResponse.error('Un des produits du panier est introuvable');
         }
-        if (!Number.isFinite(Number(product.stock)) || Number(product.stock) <= 0) {
+        if (
+          !Number.isFinite(Number(product.stock)) ||
+          Number(product.stock) <= 0
+        ) {
           return ApiResponse.error(
             `Le produit ${product.name} est actuellement indisponible`,
           );
@@ -121,13 +126,16 @@ export class CommandesService {
 
       // 2. Carte (attache le PaymentMethod au client Stripe, stocke masqué).
       const cardResp = await this.cartesService.create(
-        { stripePaymentMethodId: dto.stripePaymentMethodId, isDefault: true } as any,
+        {
+          stripePaymentMethodId: dto.stripePaymentMethodId,
+          isDefault: true,
+        } as any,
         currentUser,
       );
       if (!cardResp.success || !cardResp.data) {
         return cardResp;
       }
-      const cbId = String((cardResp.data as any)._id);
+      const cbId = String(cardResp.data._id);
 
       // 3. Adresse de facturation.
       const addrResp = await this.adressesService.create(
@@ -152,7 +160,8 @@ export class CommandesService {
 
       // 4. Email d'activation du compte (définir le mot de passe).
       await this.safeSendEmail(
-        () => this.sendEmailService.sendWelcomeSetPassword(user.email, setupToken),
+        () =>
+          this.sendEmailService.sendWelcomeSetPassword(user.email, setupToken),
         `guest-welcome ${user.email}`,
       );
 
@@ -178,7 +187,7 @@ export class CommandesService {
     try {
       await action();
     } catch (error) {
-      console.error(`[EMAIL] Echec d'envoi (${context})`);
+      this.logger.error(`Echec d'envoi d'email (${context})`);
     }
   }
 
@@ -261,7 +270,10 @@ export class CommandesService {
         // Revalidation serveur de la disponibilite : on refuse toute commande
         // d'un produit indisponible (stock <= 0), meme si le panier client l'a
         // laisse passer. Empeche de payer pour un service indisponible.
-        if (!Number.isFinite(Number(product.stock)) || Number(product.stock) <= 0) {
+        if (
+          !Number.isFinite(Number(product.stock)) ||
+          Number(product.stock) <= 0
+        ) {
           return ApiResponse.error(
             `Le produit ${product.name} est actuellement indisponible`,
           );
@@ -339,11 +351,11 @@ export class CommandesService {
         .exec();
 
       return ApiResponse.success(
-        'Commande creee avec succes',
+        'Commande créée avec succès',
         populatedCommande,
       );
     } catch (error) {
-      return ApiResponse.error('Erreur lors de la creation de la commande');
+      return ApiResponse.error('Erreur lors de la création de la commande');
     }
   }
 
@@ -442,16 +454,19 @@ export class CommandesService {
         });
       }
 
-      return ApiResponse.error("Le paiement Stripe n'a pas pu etre finalise", {
+      return ApiResponse.error("Le paiement Stripe n'a pas pu être finalisé", {
         orderId,
         paymentIntentId: paymentIntent.id,
         paymentStatus: paymentIntent.status,
         status: 'PENDING',
       });
     } catch (error) {
+      // Le detail (objet Stripe) reste cote serveur : jamais renvoye au client.
+      this.logger.error(
+        error instanceof Error ? (error.stack ?? error.message) : String(error),
+      );
       return ApiResponse.error(
-        'Erreur lors du paiement Stripe avec la carte sauvegardee',
-        error,
+        'Erreur lors du paiement avec la carte sauvegardée',
       );
     }
   }
@@ -499,7 +514,7 @@ export class CommandesService {
         this.commandeModel.countDocuments(whereQuery).exec(),
       ]);
 
-      return ApiResponse.success('Liste des commandes recuperee', {
+      return ApiResponse.success('Liste des commandes récupérée', {
         data,
         total,
         page,
@@ -507,7 +522,7 @@ export class CommandesService {
         totalPage: Math.ceil(total / limit),
       });
     } catch (error) {
-      return ApiResponse.error('Erreur lors de la recuperation des commandes');
+      return ApiResponse.error('Erreur lors de la récupération des commandes');
     }
   }
 
@@ -641,7 +656,7 @@ export class CommandesService {
         totalPage: Math.ceil(total / limitNumber),
       });
     } catch (error) {
-      console.error(error instanceof Error ? error.message : error);
+      this.logger.error(error instanceof Error ? error.message : String(error));
       return ApiResponse.error('Erreur lors de la récupération des commandes');
     }
   }
@@ -656,7 +671,7 @@ export class CommandesService {
         .populate('addresseFacturation', '-user')
         .exec();
       if (!commande) {
-        return ApiResponse.notFound('Commande non trouvee');
+        return ApiResponse.notFound('Commande non trouvée');
       }
       const isAdmin = currentUser?.data?.role === UserRoles.ADMIN;
       const ownerId = this.extractId(commande?.user?._id);
@@ -664,21 +679,22 @@ export class CommandesService {
 
       if (!isOwner && !isAdmin) {
         return ApiResponse.forbidden(
-          "Vous n'etes pas proprietaire de cette commande",
+          "Vous n'êtes pas propriétaire de cette commande",
         );
       }
 
-      return ApiResponse.success('Commande recuperee avec succes', commande);
+      return ApiResponse.success('Commande récupérée avec succès', commande);
     } catch (error) {
-      return ApiResponse.error('Erreur lors de la recuperation de la commande');
+      return ApiResponse.error('Erreur lors de la récupération de la commande');
     }
   }
 
-  // Cycle de vie des abonnements, déclenché par un cron (Vercel Cron). Passe à
+  // Cycle de vie des abonnements, déclenché par un cron quotidien (workflow
+  // GitHub Actions cron-abonnements.yml, protégé par CRON_SECRET). Passe à
   // FINISHED tout abonnement ACTIF dont l'échéance (dateFin) est dépassée, puis
   // prévient l'utilisateur par email. Idempotent : un abonnement déjà FINISHED
   // n'est pas retraité. Le renouvellement automatique (débit off-session) n'est
-  // pas tenté ici — il reste manuel côté client (3-D Secure impossible en cron).
+  // pas tenté ici : il reste manuel côté client (3-D Secure impossible en cron).
   async processExpiredSubscriptions() {
     const nowIso = new Date().toISOString();
     const nowMs = Date.now();
@@ -727,11 +743,13 @@ export class CommandesService {
         // Notification push de fin d'abonnement (no-op sans VAPID).
         const expiredUserId = expiredUser?._id?.toString();
         if (expiredUserId) {
-          this.pushService.sendToUser(expiredUserId, {
-            title: 'Abonnement expiré',
-            body: 'Un de vos abonnements a expiré. Renouvelez-le depuis votre espace.',
-            url: '/account',
-          }).catch(() => {});
+          this.pushService
+            .sendToUser(expiredUserId, {
+              title: 'Abonnement expiré',
+              body: 'Un de vos abonnements a expiré. Renouvelez-le depuis votre espace.',
+              url: '/account',
+            })
+            .catch(() => {});
         }
       }
     }
@@ -803,15 +821,17 @@ export class CommandesService {
         // Notification push (no-op si l'utilisateur n'est pas abonné ou sans VAPID).
         const paidUserId = paidUser?._id?.toString();
         if (paidUserId) {
-          this.pushService.sendToUser(paidUserId, {
-            title: 'Commande confirmée ✓',
-            body: `Votre commande ${updatedCommande.reference} a été payée avec succès.`,
-            url: '/account',
-          }).catch(() => {});
+          this.pushService
+            .sendToUser(paidUserId, {
+              title: 'Commande confirmée',
+              body: `Votre commande ${updatedCommande.reference} a été payée avec succès.`,
+              url: '/account',
+            })
+            .catch(() => {});
         }
       }
 
-      return ApiResponse.success('Commande payee avec succes', updatedCommande);
+      return ApiResponse.success('Commande payée avec succès', updatedCommande);
     } catch (error) {
       return ApiResponse.error(
         'Erreur lors de la mise a jour du statut de la commande',
@@ -959,9 +979,7 @@ export class CommandesService {
 
       return ApiResponse.success('Commande annulée avec succes');
     } catch (error) {
-      return ApiResponse.error(
-        'Erreur lors de lannulation de la commande',
-      );
+      return ApiResponse.error('Erreur lors de lannulation de la commande');
     }
   }
 
@@ -974,16 +992,15 @@ export class CommandesService {
       if (!isValidObjectId(id)) {
         return ApiResponse.error("L'id de la commande est invalide");
       }
-      if (
-        !Object.values(StatutCommande).includes(statut as StatutCommande)
-      ) {
+      if (!Object.values(StatutCommande).includes(statut as StatutCommande)) {
         return ApiResponse.error('Statut de commande invalide');
       }
 
-      const setObj: Record<string, any> = { statut };
-      if (statut === StatutCommande.PAID) {
+      const statutValue = statut as StatutCommande;
+      const setObj: Record<string, any> = { statut: statutValue };
+      if (statutValue === StatutCommande.PAID) {
         setObj['abonnements.$[].statut'] = StatutAbonnement.ACTIVE;
-      } else if (statut === StatutCommande.CANCELED) {
+      } else if (statutValue === StatutCommande.CANCELED) {
         setObj['abonnements.$[].statut'] = StatutAbonnement.DESACTIVE;
       }
 
@@ -1006,10 +1023,7 @@ export class CommandesService {
         metadata: { statut },
       });
 
-      return ApiResponse.success(
-        'Statut de la commande mis à jour',
-        updated,
-      );
+      return ApiResponse.success('Statut de la commande mis à jour', updated);
     } catch (error) {
       return ApiResponse.error(
         'Erreur lors de la mise à jour du statut de la commande',
@@ -1182,7 +1196,10 @@ export class CommandesService {
       const catTotals = new Map<string, number>();
       for (const row of byProduct) {
         const key = row.categoryName;
-        catTotals.set(key, (catTotals.get(key) ?? 0) + Number(row.revenue ?? 0));
+        catTotals.set(
+          key,
+          (catTotals.get(key) ?? 0) + Number(row.revenue ?? 0),
+        );
       }
       const salesByCategory = Array.from(catTotals.entries())
         .map(([label, value]) => ({
@@ -1271,7 +1288,10 @@ export class CommandesService {
         push(
           start,
           1,
-          start.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' }),
+          start.toLocaleDateString('fr-FR', {
+            weekday: 'short',
+            day: 'numeric',
+          }),
         );
       }
     }

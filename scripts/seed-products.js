@@ -134,11 +134,11 @@ function buildProducts() {
     // Nettoyage : on repart d'une collection vide (idempotent).
     const del = await db.collection('products').deleteMany({});
     if (del.deletedCount) {
-      console.log(`🧹 ${del.deletedCount} produit(s) existant(s) supprimé(s).`);
+      console.log(`${del.deletedCount} produit(s) existant(s) supprimé(s).`);
     }
     const products = buildProducts();
     const res = await db.collection('products').insertMany(products);
-    console.log(`✅ ${res.insertedCount} produits insérés dans "${db.databaseName}".`);
+    console.log(`${res.insertedCount} produits insérés dans "${db.databaseName}".`);
 
     const priority = products.filter((p) => p.is_selected).length;
     const outOfStock = products.filter((p) => p.stock === 0).length;
@@ -149,6 +149,6 @@ function buildProducts() {
     await client.close();
   }
 })().catch((e) => {
-  console.error('❌ Échec du seed :', e.message);
+  console.error('Échec du seed :', e.message);
   process.exit(1);
 });

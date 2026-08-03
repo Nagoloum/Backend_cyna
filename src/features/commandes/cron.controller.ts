@@ -4,9 +4,9 @@ import { CommandesService } from './commandes.service';
 import { CronGuard } from '../../shared/guards/cron.guard';
 import { ApiResponse } from '../../shared/responses/api-response';
 
-// Endpoints déclenchés par Vercel Cron (voir vercel.json → crons). Protégés par
-// CronGuard (secret CRON_SECRET). Aucune session utilisateur : ce sont des
-// tâches planifiées côté plateforme.
+// Endpoints déclenchés par le cron quotidien (workflow GitHub Actions
+// cron-abonnements.yml). Protégés par CronGuard (secret CRON_SECRET).
+// Aucune session utilisateur : ce sont des tâches planifiées.
 @ApiExcludeController()
 @Controller('cron')
 export class CronController {
@@ -17,9 +17,6 @@ export class CronController {
   @Get('abonnements')
   async runSubscriptionLifecycle() {
     const result = await this.commandesService.processExpiredSubscriptions();
-    return ApiResponse.success(
-      'Cycle de vie des abonnements traité',
-      result,
-    );
+    return ApiResponse.success('Cycle de vie des abonnements traité', result);
   }
 }

@@ -86,7 +86,7 @@ async function fetchImageBuffer(seed) {
     // Idempotent : on supprime d'abord ces _id s'ils existent déjà.
     await col.deleteMany({ _id: { $in: docs.map((d) => d._id) } });
     const res = await col.insertMany(docs);
-    console.log(`\n✅ ${res.insertedCount} catégories insérées.`);
+    console.log(`\n${res.insertedCount} catégories insérées.`);
     docs.forEach((d) =>
       console.log(`   - [${d.order}] ${d.name} (${d.slug})`),
     );
@@ -94,6 +94,6 @@ async function fetchImageBuffer(seed) {
     await client.close();
   }
 })().catch((e) => {
-  console.error('❌ Échec :', e.message);
+  console.error('Échec :', e.message);
   process.exit(1);
 });

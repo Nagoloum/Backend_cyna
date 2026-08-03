@@ -6,7 +6,7 @@
  * Usage :
  *   node scripts/restore.js backups/cyna-2026-06-12T10-00-00-000Z.gz
  *
- * ⚠️ --drop : les collections existantes sont SUPPRIMÉES puis recréées à partir
+ * ATTENTION, --drop : les collections existantes sont SUPPRIMÉES puis recréées à partir
  * de l'archive. À utiliser en connaissance de cause (de préférence sur un
  * environnement de staging avant la production).
  */
@@ -46,4 +46,4 @@ if (res.status !== 0) {
   console.error(`mongorestore a échoué (code ${res.status}).`);
   process.exit(res.status || 1);
 }
-console.log('✅ Restauration terminée.');
+console.log('Restauration terminée.');

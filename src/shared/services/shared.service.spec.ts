@@ -62,13 +62,17 @@ describe('SharedService', () => {
 
   describe('générateurs', () => {
     it('generateSlug normalise accents, espaces et casse', () => {
-      expect(service.generateSlug('Cyber Sécurité Pro')).toBe('cyber-securite-pro');
+      expect(service.generateSlug('Cyber Sécurité Pro')).toBe(
+        'cyber-securite-pro',
+      );
     });
     it('generateReference renvoie 10 caractères alphanumériques', () => {
       expect(service.generateReference()).toMatch(/^[A-Za-z0-9]{10}$/);
     });
     it('generateLicenseKey renvoie 4 groupes de 4 caractères', () => {
-      expect(service.generateLicenseKey()).toMatch(/^[A-Z0-9]{4}(-[A-Z0-9]{4}){3}$/);
+      expect(service.generateLicenseKey()).toMatch(
+        /^[A-Z0-9]{4}(-[A-Z0-9]{4}){3}$/,
+      );
     });
     it('generateSixDigitCode renvoie 6 chiffres', () => {
       expect(service.generateSixDigitCode()).toMatch(/^\d{6}$/);

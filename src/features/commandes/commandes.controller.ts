@@ -164,7 +164,7 @@ export class CommandesController {
     return this.abonnementsService.resilier(id, currentUser);
   }
 
-  // Modifier un abonnement (quantité / période) — recalcul, sans paiement.
+  // Modifier un abonnement (quantité / période) : recalcul, sans paiement.
   @UseGuards(AuthGuard)
   @Patch('abonnement/:id')
   updateAbonnement(
@@ -175,10 +175,13 @@ export class CommandesController {
     return this.abonnementsService.update(id, body, currentUser);
   }
 
-  // Renouveler un abonnement — débit off-session de la carte enregistrée.
+  // Renouveler un abonnement : débit off-session de la carte enregistrée.
   @UseGuards(AuthGuard)
   @Post('abonnement/renouveler/:id')
-  renouvelerAbonnement(@Param('id') id: string, @CurrentUser() currentUser: any) {
+  renouvelerAbonnement(
+    @Param('id') id: string,
+    @CurrentUser() currentUser: any,
+  ) {
     return this.abonnementsService.renouveler(id, currentUser);
   }
 

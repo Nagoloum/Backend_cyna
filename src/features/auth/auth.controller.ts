@@ -35,9 +35,9 @@ function setAuthCookie(res: any, token: string): void {
   res.cookie('accessToken', token, {
     httpOnly: true,
     secure: prod,
-    // cynaapi.vercel.app et cynaapp.vercel.app sont cross-site (vercel.app est
-    // dans la Public Suffix List). SameSite=None;Secure est requis pour que le
-    // cookie httpOnly traverse les requêtes cross-site en production.
+    // Le frontend (cynaapp.vercel.app) et l'API (backend-cyna.onrender.com)
+    // sont sur des sites différents : SameSite=None;Secure est requis pour que
+    // le cookie httpOnly traverse les requêtes cross-site en production.
     sameSite: prod ? 'none' : 'strict',
     maxAge: ACCESS_COOKIE_MAX_AGE,
     path: '/',
@@ -93,7 +93,7 @@ export class AuthController {
   // flux d'authentification, et retire le refresh token du corps de reponse
   // (il ne doit exister que dans le cookie httpOnly, jamais accessible au JS).
   private applyAuthCookies(res: any, result: any): void {
-    const data = result?.data as any;
+    const data = result?.data;
     if (result?.success && data?.token && !data?.twoFactorPending) {
       setAuthCookie(res, data.token);
     }
@@ -181,10 +181,7 @@ export class AuthController {
   // un nouvel access token. Public (pas d'access token requis, il est peut-etre
   // expire). Le refresh token n'est jamais renvoye dans le corps.
   @Post('refresh')
-  async refresh(
-    @Req() req: any,
-    @Res({ passthrough: true }) res: any,
-  ) {
+  async refresh(@Req() req: any, @Res({ passthrough: true }) res: any) {
     const refreshToken = req?.cookies?.refreshToken;
     const result = await this.authService.refreshAccessToken(refreshToken);
     this.applyAuthCookies(res, result);
@@ -235,7 +232,8 @@ export class AuthController {
   })
   @UseInterceptors(NoFilesInterceptor())
   resetforgotPassword(
-    @Body(FormDataTransformPipe, ValidationPipe) body: { email: string } | string,
+    @Body(FormDataTransformPipe, ValidationPipe)
+    body: { email: string } | string,
   ) {
     const email = typeof body === 'string' ? body : body?.email;
     return this.authService.forgotPassword(email);
@@ -255,7 +253,8 @@ export class AuthController {
   @UseInterceptors(NoFilesInterceptor())
   changePassword(
     @Query('token') token: string,
-    @Body(FormDataTransformPipe, ValidationPipe) body: { password: string } | string,
+    @Body(FormDataTransformPipe, ValidationPipe)
+    body: { password: string } | string,
   ) {
     const password = typeof body === 'string' ? body : body?.password;
     return this.authService.resetPassword(token, password);

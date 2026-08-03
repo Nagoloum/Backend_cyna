@@ -5,7 +5,7 @@ import { CouponType } from './entities/coupon.entity';
 // coupon fourni (ou null).
 const serviceWithCoupon = (coupon: any): CouponsService => {
   const model: any = {
-    findOne: () => ({ exec: async () => coupon }),
+    findOne: () => ({ exec: () => Promise.resolve(coupon) }),
   };
   return new CouponsService(model);
 };
@@ -30,7 +30,11 @@ describe('CouponsService.validateCode', () => {
   });
 
   it('calcule une remise fixe plafonnée au montant', async () => {
-    const s = serviceWithCoupon({ ...baseCoupon, type: CouponType.FIXED, value: 50 });
+    const s = serviceWithCoupon({
+      ...baseCoupon,
+      type: CouponType.FIXED,
+      value: 50,
+    });
     expect((await s.validateCode('X', 100)).discount).toBe(50);
     // Plafonnée : remise jamais supérieure au montant.
     expect((await s.validateCode('X', 30)).discount).toBe(30);
@@ -48,7 +52,10 @@ describe('CouponsService.validateCode', () => {
   });
 
   it('refuse un code expiré', async () => {
-    const s = serviceWithCoupon({ ...baseCoupon, endsAt: '2000-01-01T00:00:00.000Z' });
+    const s = serviceWithCoupon({
+      ...baseCoupon,
+      endsAt: '2000-01-01T00:00:00.000Z',
+    });
     expect((await s.validateCode('X', 100)).valid).toBe(false);
   });
 

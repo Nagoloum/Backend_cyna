@@ -5,8 +5,8 @@ import { v2 as cloudinary, UploadApiResponse, ConfigOptions } from 'cloudinary';
  * Service d'upload d'images vers Cloudinary.
  *
  * Remplace le stockage sur disque local (`fs.writeFileSync` dans `./storage/...`),
- * qui ne fonctionne pas sur un hébergement serverless (Vercel) où le système de
- * fichiers est en lecture seule et éphémère.
+ * qui ne fonctionne pas sur un hébergement dont le système de fichiers est en
+ * lecture seule ou éphémère.
  *
  * Configuration via variables d'environnement :
  *   - CLOUDINARY_URL=cloudinary://<api_key>:<api_secret>@<cloud_name>

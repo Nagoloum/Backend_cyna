@@ -1,14 +1,16 @@
+import { Logger } from '@nestjs/common';
 import { promises as dnsPromises } from 'dns';
 import { execSync } from 'child_process';
 
 // Resolution DNS Atlas partagee. Transforme une URL `mongodb+srv://` en URL
 // `mongodb://` directe (hotes resolus en dur), utile la ou la resolution SRV
-// native echoue (local Windows, certains runtimes serverless). Tolerant aux
-// pannes : renvoie l'URL d'origine si la resolution echoue.
+// native echoue (local Windows notamment). Tolerant aux pannes : renvoie
+// l'URL d'origine si la resolution echoue.
 //
-// Utilise a la fois par main.ts (log de diagnostic) et par le factory
-// MongooseModule.forRootAsync (app.module) afin que la connexion utilise
-// REELLEMENT l'URL resolue (le forRoot synchrone capturait l'URL trop tot).
+// Utilise par le factory MongooseModule.forRootAsync (app.module) afin que la
+// connexion utilise reellement l'URL resolue au moment ou elle est etablie.
+
+const logger = new Logger('Atlas');
 
 function srvViaPowerShell(
   srvHost: string,
@@ -94,20 +96,20 @@ export async function resolveAtlasUrl(url: string): Promise<string> {
         break;
       }
     }
-    console.log(`[Atlas] DNS c-ares OK → ${srvRecords.length} hôtes`);
+    logger.log(`Resolution SRV native OK (${srvRecords.length} hotes)`);
   } catch {
-    console.log('[Atlas] c-ares échoué, fallback PowerShell...');
+    logger.log('Resolution SRV native echouee, repli PowerShell');
     srvRecords = srvViaPowerShell(`_mongodb._tcp.${host}`);
     txtOpts = txtViaPowerShell(host);
     if (srvRecords.length > 0) {
-      console.log(`[Atlas] PowerShell OK → ${srvRecords.length} hôtes`);
+      logger.log(`Repli PowerShell OK (${srvRecords.length} hotes)`);
     }
   }
 
   if (srvRecords.length === 0) {
     // Resolution impossible : on renvoie l'URL d'origine et on laisse le driver
-    // Mongoose tenter sa propre resolution SRV (fonctionne sur Linux/Vercel).
-    console.error('[Atlas] Résolution SRV impossible → URL sr:// d\'origine utilisée');
+    // Mongoose tenter sa propre resolution SRV (fonctionne sur Linux).
+    logger.warn("Resolution SRV impossible, URL srv:// d'origine utilisee");
     return url;
   }
 
@@ -140,6 +142,6 @@ export async function resolveAtlasUrl(url: string): Promise<string> {
     .join('&');
 
   const directUrl = `mongodb://${credentials}@${hosts}/${db}?${query}`;
-  console.log(`[Atlas] Connexion directe construite (${srvRecords.length} hôtes)`);
+  logger.log(`Connexion directe construite (${srvRecords.length} hotes)`);
   return directUrl;
 }

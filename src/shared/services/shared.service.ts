@@ -54,7 +54,7 @@ export class SharedService {
 
   accessToken(user: User, options?: { twoFactorPending?: boolean }) {
     const payload: Record<string, any> = {
-      id: user._id.toString(), // ✅ important
+      id: user._id.toString(),
       email: user.email,
       role: user.role,
     };
@@ -131,7 +131,7 @@ export class SharedService {
   }
   tokenConfirmedEmail(user: User) {
     const payload = {
-      id: user._id.toString(), // ✅ important
+      id: user._id.toString(),
       email: user.email,
     };
 
@@ -148,7 +148,7 @@ export class SharedService {
 
   confirmationToken(user: User) {
     const payload = {
-      id: user._id.toString(), // ✅ important
+      id: user._id.toString(),
       email: user.email,
       role: user.role,
     };
@@ -158,17 +158,14 @@ export class SharedService {
       expiresIn: process.env.ACCESS_TOKEN_EXPIRE_TIME as StringValue,
     });
   }
-  /** Valide, charge et retourne les ObjectId associés à une liste d’IDs string. */
-
   parseDate(dateStr: string) {
     const [day, month, year] = dateStr.split('/').map(Number);
     return new Date(year, month - 1, day); // mois commence à 0 en JS
   }
 
   // Code 2FA email a 6 chiffres. Pur : la persistance (code + expiration) se fait
-  // sur le document User en base, jamais en memoire process — indispensable en
-  // environnement serverless multi-instances (Vercel) ou chaque requete peut
-  // tomber sur une instance differente.
+  // sur le document User en base, jamais en memoire process, ce qui reste
+  // indispensable si l'app tourne un jour sur plusieurs instances.
   generateSixDigitCode(): string {
     return Math.floor(100000 + Math.random() * 900000).toString();
   }

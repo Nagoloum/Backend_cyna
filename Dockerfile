@@ -23,8 +23,7 @@ RUN npm ci --omit=dev && npm cache clean --force
 
 COPY --from=builder /app/dist ./dist
 
-RUN mkdir -p storage/categories storage/products storage/sliders \
-  && chown -R node:node /app
+RUN chown -R node:node /app
 
 USER node
 

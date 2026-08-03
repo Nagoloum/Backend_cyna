@@ -49,7 +49,13 @@ export class UsersService {
 
       const p = Math.max(1, Number(page) || 1);
       const l = Math.max(1, Number(limit) || 10);
-      const allowedSort = ['email', 'firstName', 'lastName', 'role', 'createdAt'];
+      const allowedSort = [
+        'email',
+        'firstName',
+        'lastName',
+        'role',
+        'createdAt',
+      ];
       const sortField = allowedSort.includes(String(sortBy))
         ? String(sortBy)
         : 'createdAt';

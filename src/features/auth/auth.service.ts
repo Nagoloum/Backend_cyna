@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { LoginDto, RegisterDto } from './dto/auth.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import { User } from '../users/entities/user.entity';
@@ -23,6 +23,8 @@ authenticator.options = { window: 1 };
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     @InjectModel(User.name) private readonly userModel: Model<User>,
     private readonly sharedService: SharedService,
@@ -41,7 +43,9 @@ export class AuthService {
       // Message identique que le compte existe ou non : empêche
       // l'énumération des adresses e-mail inscrites.
       if (!user) {
-        return ApiResponse.unauthorized('Adresse e-mail ou mot de passe incorrect');
+        return ApiResponse.unauthorized(
+          'Adresse e-mail ou mot de passe incorrect',
+        );
       }
 
       const matchPassword = await bcrypt.compare(
@@ -50,7 +54,9 @@ export class AuthService {
       );
 
       if (!matchPassword) {
-        return ApiResponse.unauthorized('Adresse e-mail ou mot de passe incorrect');
+        return ApiResponse.unauthorized(
+          'Adresse e-mail ou mot de passe incorrect',
+        );
       }
 
       // Compte suspendu par un administrateur : connexion refusée.
@@ -112,9 +118,7 @@ export class AuthService {
       }
       return ApiResponse.success('Connexion réussie', data);
     } catch (error: any) {
-      return ApiResponse.error(
-        'Une erreur est survenue lors de la connexion',
-      );
+      return ApiResponse.error('Une erreur est survenue lors de la connexion');
     }
   }
   // Verifie le code 2FA email. Le code est lu sur le document User en base
@@ -170,20 +174,28 @@ export class AuthService {
   // Renvoie aussi un refresh token rafraichi (rotation douce).
   async refreshAccessToken(refreshToken: string) {
     if (!refreshToken) {
-      return ApiResponse.unauthorized('Session expirée, veuillez vous reconnecter');
+      return ApiResponse.unauthorized(
+        'Session expirée, veuillez vous reconnecter',
+      );
     }
     const payload = this.sharedService.verifyRefreshToken(refreshToken);
     if (!payload) {
-      return ApiResponse.unauthorized('Session expirée, veuillez vous reconnecter');
+      return ApiResponse.unauthorized(
+        'Session expirée, veuillez vous reconnecter',
+      );
     }
     const user = await this.userModel.findById(payload.id);
     if (!user || user.isActive === false) {
-      return ApiResponse.unauthorized('Session expirée, veuillez vous reconnecter');
+      return ApiResponse.unauthorized(
+        'Session expirée, veuillez vous reconnecter',
+      );
     }
     // Invalidation serveur : un logout ou un changement de mot de passe a
     // incremente tokenVersion → les anciens refresh tokens sont refuses.
     if ((user.tokenVersion ?? 0) !== payload.tokenVersion) {
-      return ApiResponse.unauthorized('Session expirée, veuillez vous reconnecter');
+      return ApiResponse.unauthorized(
+        'Session expirée, veuillez vous reconnecter',
+      );
     }
     const accessToken = this.sharedService.accessToken(user);
     const newRefreshToken = this.sharedService.refreshToken(user);
@@ -263,10 +275,9 @@ export class AuthService {
         actorEmail: user.email,
         metadata: { method: 'TOTP' },
       });
-      return ApiResponse.success(
-        'Google Authenticator activé avec succès',
-        { twoFactorMethod: TwoFactorMethod.TOTP },
-      );
+      return ApiResponse.success('Google Authenticator activé avec succès', {
+        twoFactorMethod: TwoFactorMethod.TOTP,
+      });
     } catch (error) {
       return ApiResponse.error("Erreur lors de l'activation du 2FA");
     }
@@ -328,7 +339,9 @@ export class AuthService {
     try {
       const user = await this.userModel.findById(currentUser?.data?._id);
       if (!user?.twoFactorSecret) {
-        return ApiResponse.error("L'authentification à deux facteurs n'est pas configurée");
+        return ApiResponse.error(
+          "L'authentification à deux facteurs n'est pas configurée",
+        );
       }
       const isValid = authenticator.verify({
         token: String(code ?? '').trim(),
@@ -394,10 +407,7 @@ export class AuthService {
         'Inscription réussie, vérifiez votre email pour confirmer votre compte puis vous connecter',
       );
     } catch (error: any) {
-      // ← Ajoute ça
-      return ApiResponse.error(
-        'Une erreur est survenue lors de la connexion',
-      );
+      return ApiResponse.error("Une erreur est survenue lors de l'inscription");
     }
   }
 
@@ -430,7 +440,6 @@ export class AuthService {
   }
   async forgotPassword(currentEmail: string) {
     try {
-      // une fois que j'ai email je verife s'il existe.
       const currentUser = await this.userModel.findOne(
         { email: currentEmail },
         'email',
@@ -457,13 +466,17 @@ export class AuthService {
       await this.sendEmailService.sendResetPassword(
         currentUser.email,
         createTokenForget,
-      ); // envoie du message de rest password
+      );
       return ApiResponse.success(
         'Veuillez vérifier votre adresse e-mail afin de finaliser l’opération.',
       );
     } catch (error: any) {
-      console.error('[AUTH] Echec de la demande de reinitialisation');
-      return ApiResponse.error('Une erreur est survenue lors de la connexion');
+      this.logger.error(
+        'Echec de la demande de reinitialisation de mot de passe',
+      );
+      return ApiResponse.error(
+        'Une erreur est survenue. Veuillez réessayer plus tard.',
+      );
     }
   }
   async resetPassword(token: string, newPassword: string) {

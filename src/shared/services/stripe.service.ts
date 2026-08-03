@@ -1,5 +1,4 @@
-// stripe.service.ts
-import Stripe = require('stripe');
+import Stripe from 'stripe';
 import { Injectable } from '@nestjs/common';
 import { config } from 'dotenv';
 

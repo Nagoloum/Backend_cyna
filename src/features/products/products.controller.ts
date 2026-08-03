@@ -53,9 +53,8 @@ export class ProductsController {
   create(
     @Body(FormDataTransformPipe, ValidationPipe)
     createProductDto: CreateProductDto,
-    @UploadedFiles() files: Express.Multer.File[], // Note le pluriel ici
+    @UploadedFiles() files: Express.Multer.File[],
   ) {
-    // files contiendra un tableau de tes images
     return this.productsService.create(createProductDto, files);
   }
   @Get('similar/:categoryId')
@@ -107,7 +106,7 @@ export class ProductsController {
     @Param('slug') slug: string,
     @Body(FormDataTransformPipe, ValidationPipe)
     updateProductDto: UpdateProductDto,
-    @UploadedFiles() files: Express.Multer.File[], // Note le pluriel ici
+    @UploadedFiles() files: Express.Multer.File[],
   ) {
     return this.productsService.update(slug, updateProductDto, files);
   }

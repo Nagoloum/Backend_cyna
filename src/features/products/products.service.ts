@@ -1,5 +1,5 @@
 import { escapeRegex } from '../../shared/generic/escape-regex';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { SharedService } from '../../shared/services/shared.service';
@@ -14,6 +14,8 @@ import { ImageDto } from '../../shared/dto';
 import { CloudinaryService } from '../../shared/services/cloudinary.service';
 @Injectable()
 export class ProductsService {
+  private readonly logger = new Logger(ProductsService.name);
+
   constructor(
     @InjectModel(Product.name) private productModel: Model<Product>,
     private readonly sharedService: SharedService,
@@ -89,7 +91,7 @@ export class ProductsService {
         await this.cloudinaryService.deleteByUrl(url);
       }
 
-      console.error(error instanceof Error ? error.message : error);
+      this.logger.error(error instanceof Error ? error.message : String(error));
       return ApiResponse.error('Erreur lors de la création du produit');
     }
   }
@@ -112,7 +114,9 @@ export class ProductsService {
         similarProducts,
       );
     } catch (error) {
-      console.error(error);
+      this.logger.error(
+        error instanceof Error ? (error.stack ?? error.message) : String(error),
+      );
       return ApiResponse.error(
         'Erreur lors de la récupération des produits similaires',
       );
@@ -131,9 +135,9 @@ export class ProductsService {
         .sort({ order: 1 })
         .exec();
       if (!product) {
-        return ApiResponse.error('Produit non trouvée');
+        return ApiResponse.error('Produit non trouvé');
       }
-      return ApiResponse.success('Produit récupérée avec succès', product);
+      return ApiResponse.success('Produit récupéré avec succès', product);
     } catch (error) {
       return ApiResponse.error(
         'Erreur lors de la récupération des produits par ordre',
@@ -334,7 +338,7 @@ export class ProductsService {
         imagesChanged = true;
       }
 
-      // 3. Résolution du ServiceId et du Slug (comme avant)
+      // 3. Résolution du ServiceId et du Slug
       const serviceId = await resolveIdOrThrow(
         updateProductDto.serviceId,
         (id) => this.servicesService.findOneById(id),
@@ -346,7 +350,7 @@ export class ProductsService {
         : existingProduct.slug;
 
       // 4. Mise à jour finale. On ne touche au champ `images` que si l'utilisateur
-      // a explicitement envoyé de nouveaux fichiers sinon on conserve les images
+      // a explicitement envoyé de nouveaux fichiers ; sinon on conserve les images
       // déjà en base. On retire systématiquement la clé `images` qui peut être
       // présente à `undefined` dans le DTO (et qui écraserait le tableau Mongo).
       const updatePayload: any = {
@@ -373,7 +377,7 @@ export class ProductsService {
       for (const url of newUploadedUrls) {
         await this.cloudinaryService.deleteByUrl(url);
       }
-      console.error(error instanceof Error ? error.message : error);
+      this.logger.error(error instanceof Error ? error.message : String(error));
       return ApiResponse.error('Erreur lors de la mise à jour du produit');
     }
   }
@@ -395,7 +399,7 @@ export class ProductsService {
 
       return ApiResponse.success('Produit et ses images supprimés avec succès');
     } catch (error) {
-      console.error(error instanceof Error ? error.message : error);
+      this.logger.error(error instanceof Error ? error.message : String(error));
       return ApiResponse.error('Erreur lors de la suppression du produit');
     }
   }

@@ -1,9 +1,0 @@
-node_modules
-dist
-storage
-cyna-backend.tar
-*.tar
-test
-.env
-Dockerfile
-docker-compose.yml

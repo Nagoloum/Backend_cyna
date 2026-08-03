@@ -21,7 +21,12 @@ describe('InvoiceService', () => {
       country: 'France',
     },
     abonnements: [
-      { product: { name: 'SOC Managé' }, periode: 'MOIS', quantity: 2, price: 100 },
+      {
+        product: { name: 'SOC Managé' },
+        periode: 'MOIS',
+        quantity: 2,
+        price: 100,
+      },
     ],
   };
 
@@ -34,7 +39,10 @@ describe('InvoiceService', () => {
   });
 
   it('ne lève pas d’erreur sur une commande aux champs manquants', async () => {
-    const pdf = await service.buildInvoicePdf({ reference: 'X', abonnements: [] });
+    const pdf = await service.buildInvoicePdf({
+      reference: 'X',
+      abonnements: [],
+    });
     expect(Buffer.isBuffer(pdf)).toBe(true);
     expect(pdf.subarray(0, 4).toString('utf8')).toBe('%PDF');
   });

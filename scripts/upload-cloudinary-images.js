@@ -60,7 +60,7 @@ async function fetchImageBuffer(seed) {
     const db = client.db();
     const col = db.collection('products');
     const products = await col.find({}).sort({ _id: 1 }).toArray();
-    console.log(`\n🔄 Mise à jour de ${products.length} produits...`);
+    console.log(`\nMise à jour de ${products.length} produits...`);
 
     let updated = 0;
     for (let i = 0; i < products.length; i++) {
@@ -77,11 +77,11 @@ async function fetchImageBuffer(seed) {
       updated++;
     }
 
-    console.log(`✅ ${updated} produits mis à jour avec des images Cloudinary.`);
+    console.log(`${updated} produits mis à jour avec des images Cloudinary.`);
   } finally {
     await client.close();
   }
 })().catch((e) => {
-  console.error('❌ Échec :', e.message);
+  console.error('Échec :', e.message);
   process.exit(1);
 });
