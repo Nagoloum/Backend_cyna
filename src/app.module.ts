@@ -75,12 +75,12 @@ const isProduction = process.env.NODE_ENV === 'production';
           // autoIndex desactive en serverless (les index existent deja dans
           // Atlas ; les reconstruire a chaque cold start est inutile).
           autoIndex: !process.env.VERCEL,
-          // Echec rapide (8s + 2 retries) pour rester sous la limite 30s de la
-          // fonction serverless et renvoyer un 503 propre en cas d'echec de
-          // connexion (ex. IP non autorisee dans l'allowlist Atlas).
+          // PAS de retryAttempts : le wrapper RxJS de retry de @nestjs/mongoose
+          // peut PENDRE sur un echec de connexion en serverless (au lieu de
+          // rejeter) -> 500 par timeout de fonction. On connecte directement :
+          // en cas d'echec la promesse rejette vite (serverSelectionTimeoutMS)
+          // -> 503 propre, et api/index.js reessaie a la requete suivante.
           serverSelectionTimeoutMS: 8000,
-          retryAttempts: 2,
-          retryDelay: 1000,
         };
       },
     }),

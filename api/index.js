@@ -39,6 +39,26 @@ module.exports = async (req, res) => {
     res.setHeader('Vary', 'Origin');
   }
 
+  // Probe connexion (temporaire) : teste mongoose.connect et renvoie le
+  // resultat/erreur en clair. A retirer une fois le probleme resolu.
+  if (req.url && req.url.includes('__probe')) {
+    res.setHeader('Content-Type', 'application/json');
+    const start = Date.now();
+    try {
+      const mongoose = require('mongoose');
+      await mongoose.connect(process.env.DATABASE_URL || '', {
+        serverSelectionTimeoutMS: 8000,
+      });
+      const users = await mongoose.connection.db.collection('users').countDocuments();
+      await mongoose.disconnect();
+      return res.status(200).end(JSON.stringify({ ok: true, ms: Date.now() - start, users }));
+    } catch (e) {
+      return res.status(200).end(
+        JSON.stringify({ ok: false, ms: Date.now() - start, error: e && e.message ? e.message : String(e) }),
+      );
+    }
+  }
+
   // Court-circuit le preflight OPTIONS : répond immédiatement sans bootstrap.
   if (req.method === 'OPTIONS') {
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
