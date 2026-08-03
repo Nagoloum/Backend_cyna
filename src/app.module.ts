@@ -66,6 +66,7 @@ const isProduction = process.env.NODE_ENV === 'production';
     // api/index.js reinitialise et reessaie.
     MongooseModule.forRootAsync({
       useFactory: async () => {
+        console.log('[boot] 1a mongoose factory debut VERCEL=' + process.env.VERCEL + ' DB=' + (process.env.DATABASE_URL ? 'set' : 'MISSING'));
         const raw = process.env.DATABASE_URL ?? '';
         // Sur Vercel (Linux), la resolution SRV native fonctionne parfaitement
         // (verifie en prod : connexion en ~900ms avec l'URL mongodb+srv://
@@ -74,6 +75,7 @@ const isProduction = process.env.NODE_ENV === 'production';
         // URL directe dont la connexion echoue/pend (SNI/TLS) -> 500. On garde
         // donc l'URL brute sur Vercel et resolveAtlasUrl seulement en local.
         const uri = process.env.VERCEL ? raw : await resolveAtlasUrl(raw);
+        console.log('[boot] 1b mongoose factory: uri prete (' + (uri.startsWith('mongodb+srv') ? 'srv' : 'direct') + '), retour config');
         return {
           uri,
           // Echec rapide (8s + 1 retry) pour rester sous la limite 30s de la
