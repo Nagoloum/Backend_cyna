@@ -54,7 +54,15 @@ const isProduction = process.env.NODE_ENV === 'production';
     // strictes sont posées avec @Throttle sur les endpoints sensibles
     // (login, register, forgot-password, 2FA, contact).
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
-    MongooseModule.forRoot(`${process.env.DATABASE_URL}`),
+    // Options adaptees au serverless (Vercel) : selection de serveur rapide
+    // (10s) et peu de tentatives, pour eviter que le demarrage a froid ne
+    // depasse la limite de duree de la fonction (30s) et ne renvoie un 500
+    // opaque. En cas d'echec, api/index.js reinitialise et reessaie.
+    MongooseModule.forRoot(`${process.env.DATABASE_URL}`, {
+      serverSelectionTimeoutMS: 10000,
+      retryAttempts: 2,
+      retryDelay: 2000,
+    }),
     AnalyticsModule,
     UsersModule,
     AuditModule,

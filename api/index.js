@@ -51,8 +51,26 @@ module.exports = async (req, res) => {
   }
 
   if (!bootstrapPromise) {
-    bootstrapPromise = bootstrap();
+    // IMPORTANT : ne pas mettre en cache une promesse de bootstrap ECHOUEE.
+    // Sinon une panne transitoire au demarrage a froid (ex. resolution DNS
+    // Atlas lente) fige l'instance en erreur 500 pour toutes les requetes
+    // suivantes. En cas d'echec on reinitialise pour reessayer a la prochaine
+    // invocation.
+    bootstrapPromise = bootstrap().catch((err) => {
+      bootstrapPromise = null;
+      throw err;
+    });
   }
-  await bootstrapPromise;
+
+  try {
+    await bootstrapPromise;
+  } catch (err) {
+    console.error('[bootstrap] Echec du demarrage de l\'application :', err && err.message ? err.message : err);
+    res.setHeader('Content-Type', 'application/json');
+    return res
+      .status(503)
+      .end(JSON.stringify({ success: false, message: 'Service temporairement indisponible. Veuillez reessayer.' }));
+  }
+
   server(req, res);
 };
