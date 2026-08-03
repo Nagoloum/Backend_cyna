@@ -88,6 +88,19 @@ const isProduction = process.env.NODE_ENV === 'production';
           serverSelectionTimeoutMS: 8000,
           retryAttempts: 1,
           retryDelay: 1000,
+          connectionFactory: (connection: any) => {
+            console.log(
+              '[boot] 1c connection etablie readyState=' + connection?.readyState,
+            );
+            return connection;
+          },
+          connectionErrorFactory: (error: any) => {
+            console.log(
+              '[boot] 1c-ERR connection error: ' +
+                (error && error.message ? error.message : String(error)),
+            );
+            return error;
+          },
         };
       },
     }),
