@@ -15,6 +15,25 @@
 if (!globalThis.__fatalHooked) {
   globalThis.__fatalHooked = true;
   globalThis.__fatal = null;
+  globalThis.__logs = [];
+  // Capture les sorties console en memoire (synchronement) pour pouvoir relire
+  // les derniers points d'etape du bootstrap meme si l'event loop se bloque.
+  const cap = (orig) => (...args) => {
+    try {
+      globalThis.__logs.push(
+        args
+          .map((a) => (typeof a === 'string' ? a : (a && a.message) || JSON.stringify(a)))
+          .join(' ')
+          .slice(0, 300),
+      );
+      if (globalThis.__logs.length > 200) globalThis.__logs.shift();
+    } catch (_) {}
+    return orig(...args);
+  };
+  // eslint-disable-next-line no-console
+  console.log = cap(console.log.bind(console));
+  // eslint-disable-next-line no-console
+  console.error = cap(console.error.bind(console));
   const rec = (type) => (e) => {
     globalThis.__fatal = {
       type,
@@ -62,6 +81,34 @@ module.exports = async (req, res) => {
     return res
       .status(200)
       .end(JSON.stringify({ fatal: globalThis.__fatal || null }));
+  }
+
+  // Renvoie les dernieres lignes de log capturees (points d'etape bootstrap).
+  if (req.url && req.url.includes('__logs')) {
+    res.setHeader('Content-Type', 'application/json');
+    return res
+      .status(200)
+      .end(JSON.stringify({ logs: globalThis.__logs || [], fatal: globalThis.__fatal || null }));
+  }
+
+  // Force un (re)bootstrap en tache de fond puis renvoie l'etat immediatement,
+  // sans attendre. Permet de declencher le bootstrap sur CETTE instance puis de
+  // relire /__logs sur la meme instance chaude.
+  if (req.url && req.url.includes('__kick')) {
+    res.setHeader('Content-Type', 'application/json');
+    if (!bootstrapPromise) {
+      bootstrapPromise = bootstrap().catch((e) => {
+        globalThis.__fatal = globalThis.__fatal || {
+          type: 'bootstrap-reject',
+          msg: e && e.message ? e.message : String(e),
+          stack: e && e.stack ? String(e.stack).split('\n').slice(0, 8) : null,
+        };
+        bootstrapPromise = null;
+      });
+    }
+    return res
+      .status(200)
+      .end(JSON.stringify({ kicked: true, logs: globalThis.__logs || [] }));
   }
 
   // Diagnostic : teste mongoose.connect (connexion PAR DEFAUT, exactement ce
