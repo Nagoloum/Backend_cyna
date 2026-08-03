@@ -35,6 +35,33 @@ module.exports = async (req, res) => {
   // Teste une connexion Mongo DIRECTE (sans bootstrap Nest) et renvoie le
   // resultat/erreur en clair. Permet d'identifier la cause du 500 sans acceder
   // aux logs Vercel. A retirer une fois le probleme resolu.
+  // Diagnostic : teste mongoose.connect (connexion PAR DEFAUT, exactement ce
+  // qu'utilise MongooseModule) avec l'URL brute, comme le fait Nest sur Vercel.
+  if (req.url && req.url.includes('__diagconnect')) {
+    res.setHeader('Content-Type', 'application/json');
+    const start = Date.now();
+    const mask = (u) => (u || '').replace(/\/\/([^:]+):[^@]+@/, '//$1:***@');
+    try {
+      const mongoose = require('mongoose');
+      const uri = process.env.DATABASE_URL || '';
+      await Promise.race([
+        mongoose.connect(uri, { serverSelectionTimeoutMS: 8000 }),
+        new Promise((_, r) =>
+          setTimeout(() => r(new Error('CONNECT_TIMEOUT_15s')), 15000),
+        ),
+      ]);
+      const users = await mongoose.connection.db.collection('users').countDocuments();
+      await mongoose.disconnect();
+      return res.status(200).end(
+        JSON.stringify({ ok: true, method: 'mongoose.connect', ms: Date.now() - start, users, uri: mask(uri) }),
+      );
+    } catch (e) {
+      return res.status(200).end(
+        JSON.stringify({ ok: false, method: 'mongoose.connect', ms: Date.now() - start, error: e && e.message ? e.message : String(e) }),
+      );
+    }
+  }
+
   // Diagnostic bootstrap Nest complet (avec timeout) : pointe si le demarrage
   // pend et ou il echoue, independamment de la connexion Mongo directe.
   if (req.url && req.url.includes('__diagboot')) {
