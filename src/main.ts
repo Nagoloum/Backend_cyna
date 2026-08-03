@@ -35,7 +35,6 @@ export async function createNestApp(
   // (app.module.ts) : la connexion utilise ainsi REELLEMENT l'URL resolue au
   // moment ou elle est etablie (le forRoot synchrone capturait l'URL trop tot).
 
-  console.log('[boot] 1 avant NestFactory.create');
   const app = expressInstance
     ? await NestFactory.create<NestExpressApplication>(
         AppModule,
@@ -45,7 +44,6 @@ export async function createNestApp(
     : await NestFactory.create<NestExpressApplication>(AppModule, {
         rawBody: true,
       });
-  console.log('[boot] 2 app cree (NestFactory.create OK)');
 
   // Headers de sécurité HTTP. CSP désactivée (API JSON, pas de pages HTML
   // hormis Swagger qui charge ses assets depuis un CDN).
@@ -89,7 +87,6 @@ export async function createNestApp(
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   app.useGlobalFilters(new GlobalExceptionFilter());
   app.useLogger(app.get(WINSTON_MODULE_NEST_PROVIDER));
-  console.log('[boot] 3 middlewares/pipes/logger OK (avant Swagger)');
 
   // === Swagger Configuration ===
   // Desactive par defaut sur Vercel : la generation du document Swagger scanne
@@ -130,7 +127,6 @@ export async function createNestApp(
   // Cloudinary (cf. CloudinaryService) car le système de fichiers est en
   // lecture seule sur Vercel.
 
-  console.log('[boot] 4 createNestApp termine (retour app)');
   return app;
 }
 

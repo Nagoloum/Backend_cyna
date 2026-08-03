@@ -66,42 +66,21 @@ const isProduction = process.env.NODE_ENV === 'production';
     // api/index.js reinitialise et reessaie.
     MongooseModule.forRootAsync({
       useFactory: async () => {
-        console.log('[boot] 1a mongoose factory debut VERCEL=' + process.env.VERCEL + ' DB=' + (process.env.DATABASE_URL ? 'set' : 'MISSING'));
         const raw = process.env.DATABASE_URL ?? '';
-        // Sur Vercel (Linux), la resolution SRV native fonctionne parfaitement
-        // (verifie en prod : connexion en ~900ms avec l'URL mongodb+srv://
-        // brute). Le contournement DNS -> URL directe (hotes shard en dur) est
-        // UNIQUEMENT necessaire en local Windows ; sur Vercel il produisait une
-        // URL directe dont la connexion echoue/pend (SNI/TLS) -> 500. On garde
-        // donc l'URL brute sur Vercel et resolveAtlasUrl seulement en local.
+        // Sur Vercel (Linux), la resolution SRV native fonctionne ; le
+        // contournement DNS -> URL directe n'est utile qu'en local Windows.
         const uri = process.env.VERCEL ? raw : await resolveAtlasUrl(raw);
-        console.log('[boot] 1a2 test connexion manuelle dans la factory...');
-        try {
-          const mongoose = await import('mongoose');
-          const testConn = await mongoose.createConnection(uri, {
-            serverSelectionTimeoutMS: 8000,
-          }).asPromise();
-          console.log(
-            '[boot] 1a3 connexion manuelle OK readyState=' + testConn.readyState,
-          );
-          await testConn.close();
-        } catch (e: any) {
-          console.log(
-            '[boot] 1a3-ERR connexion manuelle echouee: ' +
-              (e && e.message ? e.message : String(e)),
-          );
-        }
-        console.log('[boot] 1b mongoose factory: uri prete, retour config (sans retryAttempts)');
         return {
           uri,
+          // autoIndex desactive en serverless (les index existent deja dans
+          // Atlas ; les reconstruire a chaque cold start est inutile).
           autoIndex: !process.env.VERCEL,
+          // Echec rapide (8s + 2 retries) pour rester sous la limite 30s de la
+          // fonction serverless et renvoyer un 503 propre en cas d'echec de
+          // connexion (ex. IP non autorisee dans l'allowlist Atlas).
           serverSelectionTimeoutMS: 8000,
-          connectionFactory: (connection: any) => {
-            console.log(
-              '[boot] 1c connection Nest etablie readyState=' + connection?.readyState,
-            );
-            return connection;
-          },
+          retryAttempts: 2,
+          retryDelay: 1000,
         };
       },
     }),
