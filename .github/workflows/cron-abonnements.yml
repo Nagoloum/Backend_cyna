@@ -1,0 +1,22 @@
+# Remplace le cron Vercel (vercel.json) depuis la migration du backend sur
+# Render : appelle chaque nuit l'endpoint de renouvellement des abonnements.
+# Le secret CRON_SECRET (GitHub Actions) doit valoir la même chose que la
+# variable CRON_SECRET du service Render.
+name: Cron abonnements
+
+on:
+  schedule:
+    - cron: '0 3 * * *' # 03:00 UTC chaque jour (comme l'ancien cron Vercel)
+  workflow_dispatch: {} # déclenchement manuel possible depuis l'onglet Actions
+
+jobs:
+  renouvellement:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Appel de l'endpoint cron
+        run: |
+          # --retry 3 : le plan gratuit Render endort le service ; la première
+          # requête peut échouer/traîner le temps du réveil (~30-60 s).
+          curl -fsS --retry 3 --retry-delay 20 --max-time 120 \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "https://backend-cyna.onrender.com/api/cron/abonnements"
