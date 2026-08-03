@@ -71,21 +71,10 @@ const isProduction = process.env.NODE_ENV === 'production';
         // Sur Vercel (Linux), la resolution SRV native fonctionne ; le
         // contournement DNS -> URL directe n'est utile qu'en local Windows.
         const uri = process.env.VERCEL ? raw : await resolveAtlasUrl(raw);
-        console.log('[boot] 1b factory retour config');
+        console.log('[boot] 1b factory retour config (minimal)');
+        // Config MINIMALE identique au standalone qui fonctionne (~900ms).
         return {
           uri,
-          connectionFactory: (c: any) => {
-            console.log('[boot] 1c connection Nest OK readyState=' + c?.readyState);
-            return c;
-          },
-          // autoIndex desactive en serverless (les index existent deja dans
-          // Atlas ; les reconstruire a chaque cold start est inutile).
-          autoIndex: !process.env.VERCEL,
-          // PAS de retryAttempts : le wrapper RxJS de retry de @nestjs/mongoose
-          // peut PENDRE sur un echec de connexion en serverless (au lieu de
-          // rejeter) -> 500 par timeout de fonction. On connecte directement :
-          // en cas d'echec la promesse rejette vite (serverSelectionTimeoutMS)
-          // -> 503 propre, et api/index.js reessaie a la requete suivante.
           serverSelectionTimeoutMS: 8000,
         };
       },
