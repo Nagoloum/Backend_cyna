@@ -5,7 +5,6 @@ import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { HttpStatusInterceptor } from './shared/interceptors/http-status.interceptor';
 import { MongooseModule } from '@nestjs/mongoose';
-import { resolveAtlasUrl } from './shared/db/resolve-atlas-url';
 import { WinstonModule } from 'nest-winston';
 import * as winston from 'winston';
 import { UsersModule } from './features/users/users.module';
@@ -55,26 +54,7 @@ const isProduction = process.env.NODE_ENV === 'production';
     // strictes sont posées avec @Throttle sur les endpoints sensibles
     // (login, register, forgot-password, 2FA, contact).
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
-    // forRootAsync : l'URI est resolue AU MOMENT de la connexion (via
-    // resolveAtlasUrl) — le forRoot synchrone capturait `process.env.DATABASE_URL`
-    // trop tot et l'URL resolue/corrigee n'etait jamais utilisee.
-    // resolveAtlasUrl transforme mongodb+srv:// en mongodb:// direct (hotes
-    // resolus, parametres dedupliques -> plus de « authSource » en double qui
-    // faisait echouer la connexion et renvoyait un 500 en serverless).
-    // Options adaptees au serverless : selection rapide (10s) + peu de retries
-    // pour ne pas depasser la limite de 30s de la fonction ; en cas d'echec
-    // api/index.js reinitialise et reessaie.
-    MongooseModule.forRootAsync({
-      useFactory: async () => {
-        const raw = process.env.DATABASE_URL ?? '';
-        // Sur Vercel (Linux) : URL SRV brute + resolveur DNS natif.
-        const uri = process.env.VERCEL ? raw : await resolveAtlasUrl(raw);
-        return {
-          uri,
-          serverSelectionTimeoutMS: 8000,
-        };
-      },
-    }),
+    MongooseModule.forRoot(`${process.env.DATABASE_URL}`),
     AnalyticsModule,
     UsersModule,
     AuditModule,

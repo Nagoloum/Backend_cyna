@@ -1,11 +1,96 @@
 import * as dns from 'dns';
+import { promises as dnsPromises } from 'dns';
+import { execSync } from 'child_process';
 
-// Force des serveurs DNS publics UNIQUEMENT en local (Windows) ou la resolution
-// SRV native d'Atlas echoue. Sur Vercel (Linux), le resolveur natif fonctionne
-// et forcer 8.8.8.8 fait PENDRE la resolution SRV du driver mongo au demarrage
-// (connexion bloquee en readyState=2). On laisse donc le DNS natif sur Vercel.
-if (!process.env.VERCEL) {
-  dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1', '1.0.0.1']);
+dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1', '1.0.0.1']);
+
+function srvViaPowerShell(srvHost: string): Array<{ name: string; port: number }> {
+  try {
+    const raw = execSync(
+      `powershell -NoProfile -Command "Resolve-DnsName ${srvHost} -Type SRV | ForEach-Object { $_.NameTarget + ':' + $_.Port }"`,
+      { encoding: 'utf8', timeout: 15000 },
+    );
+    return raw
+      .trim()
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .map((l) => {
+        const idx = l.lastIndexOf(':');
+        return { name: l.slice(0, idx), port: parseInt(l.slice(idx + 1)) || 27017 };
+      });
+  } catch {
+    return [];
+  }
+}
+
+function txtViaPowerShell(host: string): string {
+  try {
+    const raw = execSync(
+      `powershell -NoProfile -Command "Resolve-DnsName ${host} -Type TXT | Select-Object -ExpandProperty Strings"`,
+      { encoding: 'utf8', timeout: 10000 },
+    );
+    const lines = raw.trim().split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    return lines.find((l) => l.includes('authSource') || l.includes('replicaSet')) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+async function resolveAtlasUrl(url: string): Promise<string> {
+  if (!url?.startsWith('mongodb+srv://')) return url;
+
+  const withoutProto = url.slice('mongodb+srv://'.length);
+  const atIdx = withoutProto.lastIndexOf('@');
+  const credentials = withoutProto.slice(0, atIdx);
+  const rest = withoutProto.slice(atIdx + 1);
+  const slashIdx = rest.indexOf('/');
+  const host = slashIdx === -1 ? rest : rest.slice(0, slashIdx);
+  const dbAndParams = slashIdx === -1 ? '' : rest.slice(slashIdx + 1);
+  const [db, existingParams] = dbAndParams.split('?');
+
+  // Attempt 1 Node.js c-ares with Google DNS
+  let srvRecords: Array<{ name: string; port: number }> = [];
+  let txtOpts = '';
+
+  try {
+    const [srv, txt] = await Promise.all([
+      dnsPromises.resolveSrv(`_mongodb._tcp.${host}`),
+      dnsPromises.resolveTxt(host).catch(() => [] as string[][]),
+    ]);
+    srvRecords = srv.map((r) => ({ name: r.name, port: r.port }));
+    for (const record of txt) {
+      const s = Array.isArray(record) ? record.join('') : record;
+      if (s.includes('authSource') || s.includes('replicaSet')) { txtOpts = s; break; }
+    }
+    console.log(`[Atlas] DNS c-ares OK → ${srvRecords.length} hôtes`);
+  } catch {
+    // Attempt 2 PowerShell fallback (Windows only)
+    console.log('[Atlas] c-ares échoué, fallback PowerShell...');
+    srvRecords = srvViaPowerShell(`_mongodb._tcp.${host}`);
+    txtOpts = txtViaPowerShell(host);
+    if (srvRecords.length > 0) {
+      console.log(`[Atlas] PowerShell OK → ${srvRecords.length} hôtes`);
+    }
+  }
+
+  if (srvRecords.length === 0) {
+    console.error('[Atlas] Résolution SRV impossible URL originale utilisée');
+    return url;
+  }
+
+  const hosts = srvRecords
+    .sort((a, b) => a.port - b.port)
+    .map((r) => `${r.name}:${r.port}`)
+    .join(',');
+
+  const parts: string[] = ['ssl=true', 'authSource=admin'];
+  if (existingParams) parts.push(existingParams);
+  if (txtOpts) parts.push(txtOpts);
+
+  const directUrl = `mongodb://${credentials}@${hosts}/${db}?${parts.join('&')}`;
+  console.log(`[Atlas] Connexion directe construite (${srvRecords.length} hôtes)`);
+  return directUrl;
 }
 
 import { NestFactory } from '@nestjs/core';
@@ -37,9 +122,9 @@ initSentry();
 export async function createNestApp(
   expressInstance?: unknown,
 ): Promise<NestExpressApplication> {
-  // La resolution DNS Atlas est desormais faite dans MongooseModule.forRootAsync
-  // (app.module.ts) : la connexion utilise ainsi REELLEMENT l'URL resolue au
-  // moment ou elle est etablie (le forRoot synchrone capturait l'URL trop tot).
+  // Contournement DNS Atlas (utile en local Windows ; no-op si l'URL n'est
+  // pas en mongodb+srv://).
+  process.env.DATABASE_URL = await resolveAtlasUrl(process.env.DATABASE_URL ?? '');
 
   const app = expressInstance
     ? await NestFactory.create<NestExpressApplication>(
@@ -95,14 +180,9 @@ export async function createNestApp(
   app.useLogger(app.get(WINSTON_MODULE_NEST_PROVIDER));
 
   // === Swagger Configuration ===
-  // Desactive par defaut sur Vercel : la generation du document Swagger scanne
-  // toutes les routes/DTO a CHAQUE demarrage a froid serverless, ce qui est
-  // couteux et suspecte de bloquer le bootstrap. Pour l'activer sur Vercel,
-  // definir explicitement SWAGGER_ENABLED=true. En local, actif par defaut.
-  const swaggerEnabled = process.env.VERCEL
-    ? process.env.SWAGGER_ENABLED === 'true'
-    : process.env.SWAGGER_ENABLED !== 'false';
-  if (swaggerEnabled) {
+  // Actif par défaut (la doc est déployée sur Vercel) ; mettre
+  // SWAGGER_ENABLED=false pour la couper en production si besoin.
+  if (process.env.SWAGGER_ENABLED !== 'false') {
     const config = new DocumentBuilder()
       .setTitle('CYNA API')
       .setDescription('The CYNA API description')

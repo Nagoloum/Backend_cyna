@@ -101,16 +101,6 @@ export class CommandesController {
     return this.commandesService.findAll(queryDto);
   }
 
-  // Statistiques agregees pour le dashboard admin (CA, panier moyen, abonnements
-  // actifs, series par periode). Declare AVANT :reference pour ne pas etre capture
-  // par la route dynamique.
-  @AuthorizeRoles(UserRoles.ADMIN)
-  @UseGuards(AuthGuard, AuthorizeGuard)
-  @Get('stats')
-  getStats(@Query('period') period?: string) {
-    return this.commandesService.getStats(period || '7d');
-  }
-
   // Seuls les admins peuvent voir toutes les commandes, les autres utilisateurs ne verront que leurs commandes
   @UseGuards(AuthGuard)
   @Get('by-user')

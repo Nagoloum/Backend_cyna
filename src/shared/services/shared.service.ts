@@ -72,45 +72,6 @@ export class SharedService {
     });
   }
 
-  // Refresh token : longue duree, secret DISTINCT, porte la version de jeton de
-  // l'utilisateur (invalidation serveur). Echange contre un access token via
-  // POST /auth/refresh. Jamais accepte par l'AuthGuard (type 'refresh').
-  refreshToken(user: User) {
-    return this.jwtService.sign(
-      {
-        id: user._id.toString(),
-        email: user.email,
-        type: 'refresh',
-        tokenVersion: (user as any).tokenVersion ?? 0,
-      },
-      {
-        secret: process.env.REFRESH_TOKEN_SECRET_KEY!,
-        expiresIn: (process.env.REFRESH_TOKEN_EXPIRE_TIME ||
-          '30d') as StringValue,
-      },
-    );
-  }
-
-  verifyRefreshToken(token: string): {
-    id: string;
-    email: string;
-    tokenVersion: number;
-  } | null {
-    try {
-      const payload: any = this.jwtService.verify(token, {
-        secret: process.env.REFRESH_TOKEN_SECRET_KEY!,
-      });
-      if (payload?.type !== 'refresh') return null;
-      return {
-        id: payload.id,
-        email: payload.email,
-        tokenVersion: payload.tokenVersion ?? 0,
-      };
-    } catch {
-      return null;
-    }
-  }
-
   // Jeton de reinitialisation / definition de mot de passe : jti unique stocke
   // sur l'utilisateur, ce qui le rend a usage unique (voir resetPassword).
   // Duree par defaut 1h (reset classique) ; plus longue pour l'activation d'un

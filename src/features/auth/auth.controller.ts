@@ -4,7 +4,6 @@ import {
   Body,
   Query,
   Get,
-  Req,
   UseGuards,
   ValidationPipe,
   UseInterceptors,
@@ -25,9 +24,8 @@ import { NoFilesInterceptor } from '@nestjs/platform-express';
 import { Throttle } from '@nestjs/throttler';
 import { ApiResponse } from '../../shared/responses/api-response';
 
-// Durée de vie des cookies (access aligné sur l'access token court ~1h ; refresh 30j).
-const ACCESS_COOKIE_MAX_AGE = 60 * 60 * 1000; // 1h
-const REFRESH_COOKIE_MAX_AGE = 30 * 24 * 60 * 60 * 1000; // 30j
+// Durée de vie du cookie JWT (7 jours, en ms).
+const COOKIE_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
 
 /** Pose le cookie httpOnly accessToken sur la réponse. */
 function setAuthCookie(res: any, token: string): void {
@@ -39,34 +37,20 @@ function setAuthCookie(res: any, token: string): void {
     // dans la Public Suffix List). SameSite=None;Secure est requis pour que le
     // cookie httpOnly traverse les requêtes cross-site en production.
     sameSite: prod ? 'none' : 'strict',
-    maxAge: ACCESS_COOKIE_MAX_AGE,
+    maxAge: COOKIE_MAX_AGE,
     path: '/',
   });
 }
 
-/** Pose le cookie httpOnly refreshToken (longue durée). */
-function setRefreshCookie(res: any, token: string): void {
+/** Supprime le cookie accessToken côté serveur. */
+function clearAuthCookie(res: any): void {
   const prod = process.env.NODE_ENV === 'production';
-  res.cookie('refreshToken', token, {
+  res.clearCookie('accessToken', {
     httpOnly: true,
     secure: prod,
     sameSite: prod ? 'none' : 'strict',
-    maxAge: REFRESH_COOKIE_MAX_AGE,
     path: '/',
   });
-}
-
-/** Supprime les cookies d'authentification côté serveur. */
-function clearAuthCookie(res: any): void {
-  const prod = process.env.NODE_ENV === 'production';
-  const opts = {
-    httpOnly: true,
-    secure: prod,
-    sameSite: prod ? ('none' as const) : ('strict' as const),
-    path: '/',
-  };
-  res.clearCookie('accessToken', opts);
-  res.clearCookie('refreshToken', opts);
 }
 
 @ApiTags('Auth')
@@ -85,22 +69,11 @@ export class AuthController {
     @Res({ passthrough: true }) res: any,
   ) {
     const result = await this.authService.login(loginDto);
-    this.applyAuthCookies(res, result);
+    const token = (result?.data as any)?.token;
+    if (result?.success && token) {
+      setAuthCookie(res, token);
+    }
     return result;
-  }
-
-  // Factorise la pose des cookies (access + refresh) a partir du resultat d'un
-  // flux d'authentification, et retire le refresh token du corps de reponse
-  // (il ne doit exister que dans le cookie httpOnly, jamais accessible au JS).
-  private applyAuthCookies(res: any, result: any): void {
-    const data = result?.data as any;
-    if (result?.success && data?.token && !data?.twoFactorPending) {
-      setAuthCookie(res, data.token);
-    }
-    if (result?.success && data?.refreshToken) {
-      setRefreshCookie(res, data.refreshToken);
-      delete data.refreshToken;
-    }
   }
 
   // Anti brute-force du code 2FA (6 chiffres) : 5 essais/minute.
@@ -131,7 +104,10 @@ export class AuthController {
     @Res({ passthrough: true }) res: any,
   ) {
     const result = await this.authService.verifyCode2FA(code, currentUser);
-    this.applyAuthCookies(res, result);
+    const token = (result?.data as any)?.token;
+    if (result?.success && token) {
+      setAuthCookie(res, token);
+    }
     return result;
   }
 
@@ -173,29 +149,16 @@ export class AuthController {
     @Res({ passthrough: true }) res: any,
   ) {
     const result = await this.authService.verifyTotpLogin(code, currentUser);
-    this.applyAuthCookies(res, result);
+    const token = (result?.data as any)?.token;
+    if (result?.success && token) {
+      setAuthCookie(res, token);
+    }
     return result;
   }
 
-  // Renouvellement de session : echange le refresh token (cookie httpOnly) contre
-  // un nouvel access token. Public (pas d'access token requis, il est peut-etre
-  // expire). Le refresh token n'est jamais renvoye dans le corps.
-  @Post('refresh')
-  async refresh(
-    @Req() req: any,
-    @Res({ passthrough: true }) res: any,
-  ) {
-    const refreshToken = req?.cookies?.refreshToken;
-    const result = await this.authService.refreshAccessToken(refreshToken);
-    this.applyAuthCookies(res, result);
-    return result;
-  }
-
-  // Déconnexion côté serveur : révoque les refresh tokens (incrémente
-  // tokenVersion) et efface les cookies httpOnly (inaccessibles au JS).
+  // Déconnexion côté serveur : efface le cookie httpOnly (inaccessible au JS).
   @Post('logout')
-  async logout(@Req() req: any, @Res({ passthrough: true }) res: Response) {
-    await this.authService.logoutByRefreshToken(req?.cookies?.refreshToken);
+  logout(@Res({ passthrough: true }) res: Response) {
     clearAuthCookie(res);
     return ApiResponse.success('Déconnecté avec succès');
   }
@@ -235,9 +198,8 @@ export class AuthController {
   })
   @UseInterceptors(NoFilesInterceptor())
   resetforgotPassword(
-    @Body(FormDataTransformPipe, ValidationPipe) body: { email: string } | string,
+    @Body(FormDataTransformPipe, ValidationPipe) email: string,
   ) {
-    const email = typeof body === 'string' ? body : body?.email;
     return this.authService.forgotPassword(email);
   }
 
@@ -255,9 +217,8 @@ export class AuthController {
   @UseInterceptors(NoFilesInterceptor())
   changePassword(
     @Query('token') token: string,
-    @Body(FormDataTransformPipe, ValidationPipe) body: { password: string } | string,
+    @Body(FormDataTransformPipe, ValidationPipe) password: string,
   ) {
-    const password = typeof body === 'string' ? body : body?.password;
     return this.authService.resetPassword(token, password);
   }
 }
