@@ -1,3 +1,9 @@
+// Augmente le pool de threads libuv AVANT tout I/O : les resolutions DNS
+// (getaddrinfo) de mongo + Sentry + Stripe + Cloudinary au demarrage saturent
+// le pool par defaut (4 threads), ce qui bloquait la connexion mongo en
+// readyState=2 sur Vercel. Doit etre defini avant le 1er usage du pool.
+process.env.UV_THREADPOOL_SIZE = process.env.UV_THREADPOOL_SIZE || '64';
+
 // Point d'entrée serverless pour Vercel.
 //
 // On importe l'application NestJS DÉJÀ COMPILÉE (`dist/main.js`) plutôt que les

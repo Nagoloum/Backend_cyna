@@ -72,13 +72,6 @@ const isProduction = process.env.NODE_ENV === 'production';
         return {
           uri,
           serverSelectionTimeoutMS: 8000,
-          // lazyConnection : Nest cree la connexion mais NE BLOQUE PAS le
-          // bootstrap en l'attendant. En serverless, attendre la connexion
-          // pendant l'instanciation concurrente des modules la laissait bloquee
-          // en readyState=2 (jamais resolue) -> 500. Avec lazyConnection, l'app
-          // demarre immediatement, la connexion s'etablit en arriere-plan
-          // (~850ms, verifie) et les requetes bufferisent jusqu'a la connexion.
-          lazyConnection: true,
         };
       },
     }),
