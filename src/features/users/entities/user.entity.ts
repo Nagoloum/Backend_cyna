@@ -55,6 +55,12 @@ export class User extends Document {
   // rendre le lien de reset a usage unique (efface des qu'il est consomme).
   @Prop()
   resetPasswordJti?: string;
+
+  // Version de jeton : incrementee lors d'un logout serveur ou d'un changement
+  // de mot de passe. Les refresh tokens portant une ancienne version sont
+  // refuses → invalidation cote serveur des sessions.
+  @Prop({ default: 0 })
+  tokenVersion!: number;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

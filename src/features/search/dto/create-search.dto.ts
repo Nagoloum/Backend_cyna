@@ -9,14 +9,18 @@ export class CreateSearchDto {
     text?: string;
     @ApiPropertyOptional()
     @IsOptional()
-    @Transform(({ value }) => (Array.isArray(value) ? value : [value]))
+    @Transform(({ value }) =>
+        value === undefined || value === null ? undefined : Array.isArray(value) ? value : [value],
+    )
     @IsArray()
     @IsString({ each: true })
     categories?: string[]; // Ce sont des IDs ici
 
     @ApiPropertyOptional()
     @IsOptional()
-    @Transform(({ value }) => (Array.isArray(value) ? value : [value]))
+    @Transform(({ value }) =>
+        value === undefined || value === null ? undefined : Array.isArray(value) ? value : [value],
+    )
     @IsArray()
     @IsString({ each: true })
     services?: string[]; // Ce sont des IDs ici

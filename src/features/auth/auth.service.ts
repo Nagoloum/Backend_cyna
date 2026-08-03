@@ -1,4 +1,4 @@
-import { ConsoleLogger, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { LoginDto, RegisterDto } from './dto/auth.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import { User } from '../users/entities/user.entity';
@@ -11,13 +11,9 @@ import { AnalyticsService } from '../../shared/services/analytics.service';
 import { AuditService } from '../audit/audit.service';
 import { JwtService } from '@nestjs/jwt';
 import { config } from 'dotenv';
-import { StringValue } from 'ms';
-import { Console } from 'console';
-import { UserRoles } from '../../shared/common/user-roles.enum';
-import { console } from 'inspector/promises';
 import { authenticator } from 'otplib';
 import * as QRCode from 'qrcode';
-import { randomUUID } from 'crypto';
+import { createHash, randomUUID, timingSafeEqual } from 'crypto';
 import { TwoFactorMethod } from '../../shared/common/two-factor-method.enum';
 
 config();
@@ -105,11 +101,16 @@ export class AuthService {
       const token = this.sharedService.accessToken(user, {
         twoFactorPending: needs2FA,
       });
-      return ApiResponse.success('Connexion réussie', {
+      const data: Record<string, any> = {
         token,
         role: user.role,
         twoFactorMethod,
-      });
+      };
+      // Refresh token uniquement si aucune 2FA en attente (jeton complet).
+      if (!needs2FA) {
+        data.refreshToken = this.sharedService.refreshToken(user);
+      }
+      return ApiResponse.success('Connexion réussie', data);
     } catch (error: any) {
       return ApiResponse.error(
         'Une erreur est survenue lors de la connexion',
@@ -144,7 +145,11 @@ export class AuthService {
       return ApiResponse.error('Code de confirmation expiré');
     }
 
-    if (String(inputCode).trim() !== String(storedCode)) {
+    // Comparaison a temps constant (anti timing-attack). On hash les deux valeurs
+    // en SHA-256 pour obtenir des buffers de longueur egale avant timingSafeEqual.
+    const a = createHash('sha256').update(String(inputCode).trim()).digest();
+    const b = createHash('sha256').update(String(storedCode)).digest();
+    if (!timingSafeEqual(a, b)) {
       return ApiResponse.error('Code de confirmation incorrect');
     }
 
@@ -156,7 +161,50 @@ export class AuthService {
     return ApiResponse.success('Code validé avec succès', {
       token,
       role: user.role,
+      refreshToken: this.sharedService.refreshToken(user),
     });
+  }
+
+  // Echange un refresh token (cookie httpOnly) contre un nouvel access token.
+  // Verifie le secret refresh + la version de jeton (invalidation serveur).
+  // Renvoie aussi un refresh token rafraichi (rotation douce).
+  async refreshAccessToken(refreshToken: string) {
+    if (!refreshToken) {
+      return ApiResponse.unauthorized('Session expirée, veuillez vous reconnecter');
+    }
+    const payload = this.sharedService.verifyRefreshToken(refreshToken);
+    if (!payload) {
+      return ApiResponse.unauthorized('Session expirée, veuillez vous reconnecter');
+    }
+    const user = await this.userModel.findById(payload.id);
+    if (!user || user.isActive === false) {
+      return ApiResponse.unauthorized('Session expirée, veuillez vous reconnecter');
+    }
+    // Invalidation serveur : un logout ou un changement de mot de passe a
+    // incremente tokenVersion → les anciens refresh tokens sont refuses.
+    if ((user.tokenVersion ?? 0) !== payload.tokenVersion) {
+      return ApiResponse.unauthorized('Session expirée, veuillez vous reconnecter');
+    }
+    const accessToken = this.sharedService.accessToken(user);
+    const newRefreshToken = this.sharedService.refreshToken(user);
+    return ApiResponse.success('Session renouvelée', {
+      token: accessToken,
+      refreshToken: newRefreshToken,
+      role: user.role,
+    });
+  }
+
+  // Logout serveur : a partir du refresh token du cookie, identifie l'utilisateur
+  // et incremente son tokenVersion → invalide tous ses refresh tokens existants
+  // (revocation cote serveur). Sans cookie valide, no-op (toujours succes cote UX).
+  async logoutByRefreshToken(refreshToken?: string) {
+    if (!refreshToken) return;
+    const payload = this.sharedService.verifyRefreshToken(refreshToken);
+    if (!payload?.id) return;
+    await this.userModel.updateOne(
+      { _id: payload.id },
+      { $inc: { tokenVersion: 1 } },
+    );
   }
 
   // ── 2FA management (settings) ───────────────────────────────────────────────
@@ -294,6 +342,7 @@ export class AuthService {
       return ApiResponse.success('Code validé avec succès', {
         token,
         role: user.role,
+        refreshToken: this.sharedService.refreshToken(user),
       });
     } catch (error) {
       return ApiResponse.error('Erreur lors de la vérification du code');
@@ -318,7 +367,7 @@ export class AuthService {
         );
       }
 
-      const hashedPassword = await bcrypt.hash(registerDto.password, 10);
+      const hashedPassword = await bcrypt.hash(registerDto.password, 12);
 
       const newUser = new this.userModel({
         firstName: registerDto.firstName,
@@ -449,11 +498,14 @@ export class AuthService {
       }
 
       // Hachage du mot de passe
-      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      const hashedPassword = await bcrypt.hash(newPassword, 12);
 
       // Enregistrement du nouveau mot de passe + invalidation du token (usage unique).
+      // On incremente aussi tokenVersion : toutes les sessions existantes (refresh
+      // tokens) sont revoquees apres une reinitialisation de mot de passe.
       user.password = hashedPassword;
       user.resetPasswordJti = undefined;
+      user.tokenVersion = (user.tokenVersion ?? 0) + 1;
       await user.save();
 
       await this.auditService.record({
