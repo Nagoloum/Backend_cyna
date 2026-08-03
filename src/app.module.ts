@@ -75,31 +75,32 @@ const isProduction = process.env.NODE_ENV === 'production';
         // URL directe dont la connexion echoue/pend (SNI/TLS) -> 500. On garde
         // donc l'URL brute sur Vercel et resolveAtlasUrl seulement en local.
         const uri = process.env.VERCEL ? raw : await resolveAtlasUrl(raw);
-        console.log('[boot] 1b mongoose factory: uri prete (' + (uri.startsWith('mongodb+srv') ? 'srv' : 'direct') + '), retour config');
+        console.log('[boot] 1a2 test connexion manuelle dans la factory...');
+        try {
+          const mongoose = await import('mongoose');
+          const testConn = await mongoose.createConnection(uri, {
+            serverSelectionTimeoutMS: 8000,
+          }).asPromise();
+          console.log(
+            '[boot] 1a3 connexion manuelle OK readyState=' + testConn.readyState,
+          );
+          await testConn.close();
+        } catch (e: any) {
+          console.log(
+            '[boot] 1a3-ERR connexion manuelle echouee: ' +
+              (e && e.message ? e.message : String(e)),
+          );
+        }
+        console.log('[boot] 1b mongoose factory: uri prete, retour config (sans retryAttempts)');
         return {
           uri,
-          // autoIndex DESACTIVE en serverless : sinon Mongoose (re)construit les
-          // index de TOUS les modeles a CHAQUE demarrage a froid, ce qui bloque
-          // le bootstrap sur Vercel (-> 500 par timeout). Les index sont deja
-          // presents dans Atlas ; ils se creent en local (autoIndex par defaut).
           autoIndex: !process.env.VERCEL,
-          // Echec rapide (8s + 1 retry) pour rester sous la limite 30s de la
-          // fonction et renvoyer un 503 propre plutot qu'un 500 par timeout.
           serverSelectionTimeoutMS: 8000,
-          retryAttempts: 1,
-          retryDelay: 1000,
           connectionFactory: (connection: any) => {
             console.log(
-              '[boot] 1c connection etablie readyState=' + connection?.readyState,
+              '[boot] 1c connection Nest etablie readyState=' + connection?.readyState,
             );
             return connection;
-          },
-          connectionErrorFactory: (error: any) => {
-            console.log(
-              '[boot] 1c-ERR connection error: ' +
-                (error && error.message ? error.message : String(error)),
-            );
-            return error;
           },
         };
       },
