@@ -1,0 +1,67 @@
+# Déploiement du backend Cyna sur Render (hébergement PERSISTANT).
+#
+# Pourquoi : sur Vercel (serverless), le bootstrap NestJS + connexion MongoDB
+# se bloque au démarrage à froid. En process persistant, l'app démarre UNE fois
+# (comme en local) et tout fonctionne.
+#
+# Utilisation : Render Dashboard → New → Blueprint → connecter le repo
+# Nagoloum/Backend_cyna. Render lit ce fichier. Renseigner ensuite les variables
+# d'environnement (marquées sync:false) dans le dashboard Render.
+services:
+  - type: web
+    name: cyna-api
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm install && npm run build
+    startCommand: npm run start:prod
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: FRONTEND_URL
+        value: https://cynaapp.vercel.app
+      - key: APP_BASE_URL
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: ACCESS_TOKEN_SECRET_KEY
+        sync: false
+      - key: ACCESS_TOKEN_EXPIRE_TIME
+        value: 1h
+      - key: REFRESH_TOKEN_SECRET_KEY
+        sync: false
+      - key: REFRESH_TOKEN_EXPIRE_TIME
+        value: 30d
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: TVA_RATE
+        value: '0.20'
+      - key: CRON_SECRET
+        sync: false
+      - key: MAIL_HOST
+        sync: false
+      - key: MAIL_PORT
+        sync: false
+      - key: MAIL_USER
+        sync: false
+      - key: MAIL_PASSWORD
+        sync: false
+      - key: MAIL_FROM
+        value: no-reply@cyna.fr
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: SENTRY_DSN
+        sync: false
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_EMAIL
+        sync: false
