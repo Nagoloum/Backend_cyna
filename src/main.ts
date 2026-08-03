@@ -1,97 +1,6 @@
 import * as dns from 'dns';
-import { promises as dnsPromises } from 'dns';
-import { execSync } from 'child_process';
 
 dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1', '1.0.0.1']);
-
-function srvViaPowerShell(srvHost: string): Array<{ name: string; port: number }> {
-  try {
-    const raw = execSync(
-      `powershell -NoProfile -Command "Resolve-DnsName ${srvHost} -Type SRV | ForEach-Object { $_.NameTarget + ':' + $_.Port }"`,
-      { encoding: 'utf8', timeout: 15000 },
-    );
-    return raw
-      .trim()
-      .split(/\r?\n/)
-      .map((l) => l.trim())
-      .filter(Boolean)
-      .map((l) => {
-        const idx = l.lastIndexOf(':');
-        return { name: l.slice(0, idx), port: parseInt(l.slice(idx + 1)) || 27017 };
-      });
-  } catch {
-    return [];
-  }
-}
-
-function txtViaPowerShell(host: string): string {
-  try {
-    const raw = execSync(
-      `powershell -NoProfile -Command "Resolve-DnsName ${host} -Type TXT | Select-Object -ExpandProperty Strings"`,
-      { encoding: 'utf8', timeout: 10000 },
-    );
-    const lines = raw.trim().split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-    return lines.find((l) => l.includes('authSource') || l.includes('replicaSet')) ?? '';
-  } catch {
-    return '';
-  }
-}
-
-async function resolveAtlasUrl(url: string): Promise<string> {
-  if (!url?.startsWith('mongodb+srv://')) return url;
-
-  const withoutProto = url.slice('mongodb+srv://'.length);
-  const atIdx = withoutProto.lastIndexOf('@');
-  const credentials = withoutProto.slice(0, atIdx);
-  const rest = withoutProto.slice(atIdx + 1);
-  const slashIdx = rest.indexOf('/');
-  const host = slashIdx === -1 ? rest : rest.slice(0, slashIdx);
-  const dbAndParams = slashIdx === -1 ? '' : rest.slice(slashIdx + 1);
-  const [db, existingParams] = dbAndParams.split('?');
-
-  // Attempt 1 Node.js c-ares with Google DNS
-  let srvRecords: Array<{ name: string; port: number }> = [];
-  let txtOpts = '';
-
-  try {
-    const [srv, txt] = await Promise.all([
-      dnsPromises.resolveSrv(`_mongodb._tcp.${host}`),
-      dnsPromises.resolveTxt(host).catch(() => [] as string[][]),
-    ]);
-    srvRecords = srv.map((r) => ({ name: r.name, port: r.port }));
-    for (const record of txt) {
-      const s = Array.isArray(record) ? record.join('') : record;
-      if (s.includes('authSource') || s.includes('replicaSet')) { txtOpts = s; break; }
-    }
-    console.log(`[Atlas] DNS c-ares OK → ${srvRecords.length} hôtes`);
-  } catch {
-    // Attempt 2 PowerShell fallback (Windows only)
-    console.log('[Atlas] c-ares échoué, fallback PowerShell...');
-    srvRecords = srvViaPowerShell(`_mongodb._tcp.${host}`);
-    txtOpts = txtViaPowerShell(host);
-    if (srvRecords.length > 0) {
-      console.log(`[Atlas] PowerShell OK → ${srvRecords.length} hôtes`);
-    }
-  }
-
-  if (srvRecords.length === 0) {
-    console.error('[Atlas] Résolution SRV impossible URL originale utilisée');
-    return url;
-  }
-
-  const hosts = srvRecords
-    .sort((a, b) => a.port - b.port)
-    .map((r) => `${r.name}:${r.port}`)
-    .join(',');
-
-  const parts: string[] = ['ssl=true', 'authSource=admin'];
-  if (existingParams) parts.push(existingParams);
-  if (txtOpts) parts.push(txtOpts);
-
-  const directUrl = `mongodb://${credentials}@${hosts}/${db}?${parts.join('&')}`;
-  console.log(`[Atlas] Connexion directe construite (${srvRecords.length} hôtes)`);
-  return directUrl;
-}
 
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
@@ -122,17 +31,9 @@ initSentry();
 export async function createNestApp(
   expressInstance?: unknown,
 ): Promise<NestExpressApplication> {
-  // Contournement DNS Atlas : concu pour le local Windows (resolveSrv custom +
-  // fallback PowerShell). Sur Vercel (Linux serverless), il est INUTILE et son
-  // resolveSrv SANS timeout peut faire pendre le demarrage a froid au-dela de la
-  // limite de 30s de la fonction (-> erreur 500 opaque). On le saute donc sur
-  // Vercel et on laisse le driver Mongoose resoudre nativement mongodb+srv://
-  // (avec serverSelectionTimeoutMS defini dans MongooseModule.forRoot).
-  if (!process.env.VERCEL) {
-    process.env.DATABASE_URL = await resolveAtlasUrl(
-      process.env.DATABASE_URL ?? '',
-    );
-  }
+  // La resolution DNS Atlas est desormais faite dans MongooseModule.forRootAsync
+  // (app.module.ts) : la connexion utilise ainsi REELLEMENT l'URL resolue au
+  // moment ou elle est etablie (le forRoot synchrone capturait l'URL trop tot).
 
   const app = expressInstance
     ? await NestFactory.create<NestExpressApplication>(
