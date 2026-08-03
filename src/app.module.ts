@@ -65,16 +65,24 @@ const isProduction = process.env.NODE_ENV === 'production';
     // pour ne pas depasser la limite de 30s de la fonction ; en cas d'echec
     // api/index.js reinitialise et reessaie.
     MongooseModule.forRootAsync({
-      useFactory: async () => ({
-        uri: await resolveAtlasUrl(process.env.DATABASE_URL ?? ''),
-        // Echec RAPIDE si Atlas est injoignable (ex. IP Vercel non autorisee) :
-        // 8s de selection + 1 seul retry -> ~17s, bien sous la limite 30s de la
-        // fonction, pour renvoyer un 503 propre (via api/index.js) plutot qu'un
-        // 500 opaque par timeout. Si Atlas est joignable, la connexion est < 1s.
-        serverSelectionTimeoutMS: 8000,
-        retryAttempts: 1,
-        retryDelay: 1000,
-      }),
+      useFactory: async () => {
+        const raw = process.env.DATABASE_URL ?? '';
+        // Sur Vercel (Linux), la resolution SRV native fonctionne parfaitement
+        // (verifie en prod : connexion en ~900ms avec l'URL mongodb+srv://
+        // brute). Le contournement DNS -> URL directe (hotes shard en dur) est
+        // UNIQUEMENT necessaire en local Windows ; sur Vercel il produisait une
+        // URL directe dont la connexion echoue/pend (SNI/TLS) -> 500. On garde
+        // donc l'URL brute sur Vercel et resolveAtlasUrl seulement en local.
+        const uri = process.env.VERCEL ? raw : await resolveAtlasUrl(raw);
+        return {
+          uri,
+          // Echec rapide (8s + 1 retry) pour rester sous la limite 30s de la
+          // fonction et renvoyer un 503 propre plutot qu'un 500 par timeout.
+          serverSelectionTimeoutMS: 8000,
+          retryAttempts: 1,
+          retryDelay: 1000,
+        };
+      },
     }),
     AnalyticsModule,
     UsersModule,
