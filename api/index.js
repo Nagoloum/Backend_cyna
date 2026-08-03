@@ -54,8 +54,27 @@ module.exports = async (req, res) => {
     res.setHeader('Vary', 'Origin');
   }
 
-  // Probe connexion (temporaire) : teste mongoose.connect et renvoie le
-  // resultat/erreur en clair. A retirer une fois le probleme resolu.
+  // Probe connexion (temporaire). __probe = mongoose.connect (defaut) ;
+  // __probe2 = mongoose.createConnection (methode exacte de @nestjs/mongoose).
+  if (req.url && req.url.includes('__probe2')) {
+    res.setHeader('Content-Type', 'application/json');
+    const start = Date.now();
+    try {
+      const mongoose = require('mongoose');
+      const conn = mongoose.createConnection(process.env.DATABASE_URL || '', {
+        serverSelectionTimeoutMS: 8000,
+      });
+      await Promise.race([
+        conn.asPromise(),
+        new Promise((_, r) => setTimeout(() => r(new Error('CREATECONN_TIMEOUT_15s')), 15000)),
+      ]);
+      const users = await conn.db.collection('users').countDocuments();
+      await conn.close();
+      return res.status(200).end(JSON.stringify({ ok: true, method: 'createConnection', ms: Date.now() - start, users }));
+    } catch (e) {
+      return res.status(200).end(JSON.stringify({ ok: false, method: 'createConnection', ms: Date.now() - start, error: e && e.message ? e.message : String(e) }));
+    }
+  }
   if (req.url && req.url.includes('__probe')) {
     res.setHeader('Content-Type', 'application/json');
     const start = Date.now();
@@ -66,7 +85,7 @@ module.exports = async (req, res) => {
       });
       const users = await mongoose.connection.db.collection('users').countDocuments();
       await mongoose.disconnect();
-      return res.status(200).end(JSON.stringify({ ok: true, ms: Date.now() - start, users }));
+      return res.status(200).end(JSON.stringify({ ok: true, method: 'connect', ms: Date.now() - start, users }));
     } catch (e) {
       return res.status(200).end(
         JSON.stringify({ ok: false, ms: Date.now() - start, error: e && e.message ? e.message : String(e) }),
