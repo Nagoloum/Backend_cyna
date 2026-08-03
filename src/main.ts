@@ -122,9 +122,17 @@ initSentry();
 export async function createNestApp(
   expressInstance?: unknown,
 ): Promise<NestExpressApplication> {
-  // Contournement DNS Atlas (utile en local Windows ; no-op si l'URL n'est
-  // pas en mongodb+srv://).
-  process.env.DATABASE_URL = await resolveAtlasUrl(process.env.DATABASE_URL ?? '');
+  // Contournement DNS Atlas : concu pour le local Windows (resolveSrv custom +
+  // fallback PowerShell). Sur Vercel (Linux serverless), il est INUTILE et son
+  // resolveSrv SANS timeout peut faire pendre le demarrage a froid au-dela de la
+  // limite de 30s de la fonction (-> erreur 500 opaque). On le saute donc sur
+  // Vercel et on laisse le driver Mongoose resoudre nativement mongodb+srv://
+  // (avec serverSelectionTimeoutMS defini dans MongooseModule.forRoot).
+  if (!process.env.VERCEL) {
+    process.env.DATABASE_URL = await resolveAtlasUrl(
+      process.env.DATABASE_URL ?? '',
+    );
+  }
 
   const app = expressInstance
     ? await NestFactory.create<NestExpressApplication>(
