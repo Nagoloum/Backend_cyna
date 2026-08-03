@@ -67,9 +67,13 @@ const isProduction = process.env.NODE_ENV === 'production';
     MongooseModule.forRootAsync({
       useFactory: async () => ({
         uri: await resolveAtlasUrl(process.env.DATABASE_URL ?? ''),
-        serverSelectionTimeoutMS: 10000,
-        retryAttempts: 2,
-        retryDelay: 2000,
+        // Echec RAPIDE si Atlas est injoignable (ex. IP Vercel non autorisee) :
+        // 8s de selection + 1 seul retry -> ~17s, bien sous la limite 30s de la
+        // fonction, pour renvoyer un 503 propre (via api/index.js) plutot qu'un
+        // 500 opaque par timeout. Si Atlas est joignable, la connexion est < 1s.
+        serverSelectionTimeoutMS: 8000,
+        retryAttempts: 1,
+        retryDelay: 1000,
       }),
     }),
     AnalyticsModule,

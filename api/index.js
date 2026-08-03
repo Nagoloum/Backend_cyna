@@ -65,11 +65,20 @@ module.exports = async (req, res) => {
   try {
     await bootstrapPromise;
   } catch (err) {
-    console.error('[bootstrap] Echec du demarrage de l\'application :', err && err.message ? err.message : err);
+    const detail = err && err.message ? err.message : String(err);
+    console.error('[bootstrap] Echec du demarrage de l\'application :', detail);
     res.setHeader('Content-Type', 'application/json');
-    return res
-      .status(503)
-      .end(JSON.stringify({ success: false, message: 'Service temporairement indisponible. Veuillez reessayer.' }));
+    // On expose le message d'erreur de demarrage (typiquement une erreur de
+    // connexion MongoDB) pour faciliter le diagnostic sans acceder aux logs
+    // Vercel : ETIMEDOUT => IP non autorisee dans Atlas ; "authentication
+    // failed" => mauvais mot de passe dans DATABASE_URL ; ENOTFOUND => URL/DNS.
+    return res.status(503).end(
+      JSON.stringify({
+        success: false,
+        message: 'Service temporairement indisponible (connexion base de donnees).',
+        detail,
+      }),
+    );
   }
 
   server(req, res);
