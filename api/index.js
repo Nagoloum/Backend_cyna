@@ -86,9 +86,8 @@ module.exports = async (req, res) => {
         bootstrapPromise = null;
       });
     }
-    // Attend sur CETTE instance pour laisser le bootstrap progresser, puis
-    // renvoie les points d'etape captures (meme instance, meme globalThis).
-    await new Promise((r) => setTimeout(r, 12000));
+    // Retour IMMEDIAT avec les logs deja captures (kicker plusieurs fois pour
+    // suivre la progression sur une instance chaude).
     const boot = (globalThis.__logs || []).filter(
       (l) => l.includes('boot') || l.includes('reject') || l.includes('rror'),
     );
