@@ -8,6 +8,21 @@
 // L'app est bootstrappée UNE SEULE FOIS puis mise en cache entre les
 // invocations, pour réutiliser la connexion MongoDB (important en serverless).
 
+// Capture console + kick (diagnostic temporaire).
+if (!globalThis.__cap) {
+  globalThis.__cap = true;
+  globalThis.__logs = [];
+  const cap = (orig) => (...a) => {
+    try {
+      globalThis.__logs.push(a.map((x) => (typeof x === 'string' ? x : (x && x.message) || '')).join(' ').slice(0, 300));
+      if (globalThis.__logs.length > 100) globalThis.__logs.shift();
+    } catch (_) {}
+    return orig(...a);
+  };
+  console.log = cap(console.log.bind(console));
+  console.error = cap(console.error.bind(console));
+}
+
 const express = require('express');
 const { createNestApp } = require('../dist/main');
 
@@ -57,6 +72,21 @@ module.exports = async (req, res) => {
         JSON.stringify({ ok: false, ms: Date.now() - start, error: e && e.message ? e.message : String(e) }),
       );
     }
+  }
+
+  if (req.url && req.url.includes('__logs')) {
+    res.setHeader('Content-Type', 'application/json');
+    return res.status(200).end(JSON.stringify({ logs: globalThis.__logs || [] }));
+  }
+  if (req.url && req.url.includes('__kick')) {
+    res.setHeader('Content-Type', 'application/json');
+    if (!bootstrapPromise) {
+      bootstrapPromise = bootstrap().catch((e) => {
+        console.error('[kick-reject] ' + (e && e.message ? e.message : String(e)));
+        bootstrapPromise = null;
+      });
+    }
+    return res.status(200).end(JSON.stringify({ kicked: true }));
   }
 
   // Court-circuit le preflight OPTIONS : répond immédiatement sans bootstrap.

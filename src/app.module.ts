@@ -66,12 +66,18 @@ const isProduction = process.env.NODE_ENV === 'production';
     // api/index.js reinitialise et reessaie.
     MongooseModule.forRootAsync({
       useFactory: async () => {
+        console.log('[boot] 1a mongoose factory');
         const raw = process.env.DATABASE_URL ?? '';
         // Sur Vercel (Linux), la resolution SRV native fonctionne ; le
         // contournement DNS -> URL directe n'est utile qu'en local Windows.
         const uri = process.env.VERCEL ? raw : await resolveAtlasUrl(raw);
+        console.log('[boot] 1b factory retour config');
         return {
           uri,
+          connectionFactory: (c: any) => {
+            console.log('[boot] 1c connection Nest OK readyState=' + c?.readyState);
+            return c;
+          },
           // autoIndex desactive en serverless (les index existent deja dans
           // Atlas ; les reconstruire a chaque cold start est inutile).
           autoIndex: !process.env.VERCEL,
