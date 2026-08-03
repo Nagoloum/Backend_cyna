@@ -136,6 +136,29 @@ export class UsersService {
     }
   }
 
+  // Génère un nouveau jeton "définir mot de passe" (à usage unique, 7 jours)
+  // pour un compte invité non activé. Le jti stocké est remplacé : seul le
+  // lien du dernier email envoyé reste valide.
+  async issueSetupToken(
+    userId: string | { toString(): string } | null | undefined,
+  ): Promise<string | null> {
+    try {
+      const id =
+        typeof userId === 'string' ? userId : (userId?.toString() ?? '');
+      if (!isValidObjectId(id)) return null;
+      const user = await this.userModel.findById(id, '_id email').exec();
+      if (!user) return null;
+      const jti = randomUUID();
+      await this.userModel.updateOne(
+        { _id: user._id },
+        { resetPasswordJti: jti },
+      );
+      return this.sharedService.resetPasswordToken(user, jti, '7d');
+    } catch (_error) {
+      return null;
+    }
+  }
+
   // Suspension / réactivation d'un compte par un administrateur.
   async setUserActive(id: string, isActive: unknown, currentUser: any) {
     try {

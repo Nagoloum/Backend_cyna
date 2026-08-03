@@ -16,7 +16,10 @@ export class InvoiceService {
     return String(periode) === 'ANNEE' ? 'Annuel' : 'Mensuel';
   }
 
-  async buildInvoicePdf(commande: any): Promise<Buffer> {
+  async buildInvoicePdf(
+    commande: any,
+    opts?: { includeLicenceKeys?: boolean },
+  ): Promise<Buffer> {
     const doc = new PDFDocument({ size: 'A4', margin: 50 });
     const chunks: Buffer[] = [];
 
@@ -145,6 +148,40 @@ export class InvoiceService {
     }
     totalLine(`TVA (${tvaPercent}%)`, InvoiceService.euro(commande?.tvaAmount));
     totalLine('Total TTC', InvoiceService.euro(commande?.totalPrice), true);
+
+    // Clés de licence (reçu envoyé aux acheteurs invités) : une par abonnement.
+    if (opts?.includeLicenceKeys) {
+      let keysY = totalsY + 24;
+      doc
+        .fontSize(12)
+        .fillColor('#111')
+        .text('Clés de licence de vos abonnements', 50, keysY);
+      keysY += 20;
+      doc.fontSize(10);
+      for (const a of abonnements) {
+        const name = a?.product?.name ?? 'Service';
+        const key = a?.keyLicence ?? '';
+        if (keysY > 740) {
+          doc.addPage();
+          keysY = 50;
+        }
+        doc.fillColor('#444').text(String(name), 50, keysY, { width: 220 });
+        doc
+          .font('Courier')
+          .fillColor('#111')
+          .text(String(key), 280, keysY, { width: 265 });
+        doc.font('Helvetica');
+        keysY += 18;
+      }
+      doc
+        .fontSize(9)
+        .fillColor('#666')
+        .text(
+          'Conservez ces clés : elles permettent d’activer vos services.',
+          50,
+          keysY + 6,
+        );
+    }
 
     // Pied de page
     doc

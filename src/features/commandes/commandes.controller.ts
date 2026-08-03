@@ -68,6 +68,35 @@ export class CommandesController {
     return this.commandesService.guestCheckout(dto);
   }
 
+  // Reçu PDF d'un achat invité (public) : clés de licence + reçu de paiement.
+  // La preuve d'achat est l'identifiant du PaymentIntent Stripe, vérifié côté
+  // serveur (paiement abouti et rattaché à cette commande).
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Get('guest/facture/:orderId')
+  async downloadGuestReceipt(
+    @Param('orderId') orderId: string,
+    @Query('pi') paymentIntentId: string,
+    @Res() res: Response,
+  ) {
+    const result = await this.commandesService.buildGuestReceipt(
+      orderId,
+      paymentIntentId,
+    );
+    if (!result.success || !result.data) {
+      throw new NotFoundException(result.message ?? 'Reçu indisponible');
+    }
+    const { pdf, reference } = result.data as {
+      pdf: Buffer;
+      reference: string;
+    };
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="recu-${reference}.pdf"`,
+      'Content-Length': String(pdf.length),
+    });
+    res.end(pdf);
+  }
+
   // Endpoint pour confirmer le paiement (appelé par le frontend authentifié,
   // la vérification de propriété est faite dans le service).
   @UseGuards(AuthGuard)

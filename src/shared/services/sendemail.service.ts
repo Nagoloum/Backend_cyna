@@ -173,6 +173,106 @@ export class SendEmailService {
     });
   }
 
+  // Confirmation de commande pour un achat invité : récapitulatif complet,
+  // clés de licence, reçu PDF en pièce jointe et proposition de créer le
+  // compte (lien de définition du mot de passe, à usage unique).
+  async sendGuestOrderConfirmation(
+    email: string,
+    commande: any,
+    setupToken: string | null,
+    invoicePdf: Buffer | null,
+  ) {
+    const reference = commande?.reference ?? '';
+    const rows = (commande?.abonnements ?? [])
+      .map((a: any) => {
+        const name = a?.product?.name ?? 'Service';
+        const periode = SendEmailService.periodeLabel(a?.periode);
+        const qty = a?.quantity ?? 1;
+        return `<tr>
+          <td style="padding:6px 8px;border-bottom:1px solid #eee">${name}</td>
+          <td style="padding:6px 8px;border-bottom:1px solid #eee">${periode}</td>
+          <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:center">${qty}</td>
+          <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right">${SendEmailService.euro(a?.price)}</td>
+        </tr>`;
+      })
+      .join('');
+    const keyRows = (commande?.abonnements ?? [])
+      .map((a: any) => {
+        const name = a?.product?.name ?? 'Service';
+        const key = a?.keyLicence ?? '';
+        return `<tr>
+          <td style="padding:6px 8px;border-bottom:1px solid #eee">${name}</td>
+          <td style="padding:6px 8px;border-bottom:1px solid #eee;font-family:monospace">${key}</td>
+        </tr>`;
+      })
+      .join('');
+    const tvaPercent = Math.round(Number(commande?.tvaRate ?? 0) * 100);
+    const setupLink = setupToken
+      ? `${FRONTEND_URL}/reset-password?token=${encodeURIComponent(setupToken)}`
+      : null;
+
+    await this.transporter.sendMail({
+      from: MAIL_FROM,
+      to: email,
+      subject: `Cyna — Votre commande ${reference} : reçu et clés de licence`,
+      html: `<h1>Merci pour votre commande</h1>
+      <p>Bonjour,</p>
+      <p>Votre paiement a bien été reçu. Voici le récapitulatif de votre commande
+      <strong>${reference}</strong> :</p>
+      <table style="border-collapse:collapse;width:100%;max-width:560px;font-size:14px">
+        <thead>
+          <tr style="text-align:left">
+            <th style="padding:6px 8px;border-bottom:2px solid #333">Service</th>
+            <th style="padding:6px 8px;border-bottom:2px solid #333">Période</th>
+            <th style="padding:6px 8px;border-bottom:2px solid #333;text-align:center">Qté</th>
+            <th style="padding:6px 8px;border-bottom:2px solid #333;text-align:right">Montant</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <p style="max-width:560px;font-size:14px">
+        Sous-total HT : <strong>${SendEmailService.euro(commande?.totalHT)}</strong><br/>
+        ${
+          Number(commande?.discountAmount) > 0
+            ? `Remise${commande?.couponCode ? ` (${commande.couponCode})` : ''} : <strong>- ${SendEmailService.euro(commande?.discountAmount)}</strong><br/>`
+            : ''
+        }
+        TVA (${tvaPercent}%) : <strong>${SendEmailService.euro(commande?.tvaAmount)}</strong><br/>
+        Total TTC : <strong>${SendEmailService.euro(commande?.totalPrice)}</strong>
+      </p>
+      <h2 style="font-size:16px">Vos clés de licence</h2>
+      <table style="border-collapse:collapse;width:100%;max-width:560px;font-size:14px">
+        <thead>
+          <tr style="text-align:left">
+            <th style="padding:6px 8px;border-bottom:2px solid #333">Service</th>
+            <th style="padding:6px 8px;border-bottom:2px solid #333">Clé de licence</th>
+          </tr>
+        </thead>
+        <tbody>${keyRows}</tbody>
+      </table>
+      <p>Votre reçu de paiement (avec ces clés) est joint à cet email au format PDF.</p>
+      ${
+        setupLink
+          ? `<h2 style="font-size:16px">Créer votre compte (facultatif)</h2>
+      <p>Si vous le souhaitez, définissez un mot de passe pour gérer vos
+      abonnements (renouvellement, résiliation) et retrouver vos factures à tout
+      moment (lien valable 7 jours) :</p>
+      <p><a href="${setupLink}">Créer mon compte</a></p>`
+          : ''
+      }
+      <p>Cordialement,<br/>L'équipe Cyna</p>`,
+      attachments: invoicePdf
+        ? [
+            {
+              filename: `recu-${reference}.pdf`,
+              content: invoicePdf,
+              contentType: 'application/pdf',
+            },
+          ]
+        : [],
+    });
+  }
+
   // Confirmation de renouvellement d'abonnement.
   async sendRenewalConfirmation(
     email: string,

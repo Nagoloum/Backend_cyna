@@ -19,6 +19,7 @@ import { ProductsService } from '../products/products.service';
 import { StripeService } from '../../shared/services/stripe.service';
 import { AnalyticsService } from '../../shared/services/analytics.service';
 import { SendEmailService } from '../../shared/services/sendemail.service';
+import { InvoiceService } from '../../shared/services/invoice.service';
 import { AuditService } from '../audit/audit.service';
 import { UsersService } from '../users/users.service';
 import { CarteBancairesService } from '../carte_bancaires/carte_bancaires.service';
@@ -55,6 +56,7 @@ export class CommandesService {
     private readonly stripeService: StripeService,
     private readonly analyticsService: AnalyticsService,
     private readonly sendEmailService: SendEmailService,
+    private readonly invoiceService: InvoiceService,
     private readonly auditService: AuditService,
     private readonly usersService: UsersService,
     private readonly cartesService: CarteBancairesService,
@@ -782,8 +784,9 @@ export class CommandesService {
           },
           { new: true },
         )
-        .populate('user', 'firstName lastName email')
+        .populate('user', 'firstName lastName email confirmed')
         .populate('cb', 'carteName carteNumber carteDate')
+        .populate('addresseFacturation', '-user')
         .populate('abonnements.product', 'name slug')
         .exec();
 
@@ -809,14 +812,44 @@ export class CommandesService {
         const paidUser = updatedCommande.user as any;
         const userEmail = paidUser?.email;
         if (userEmail) {
-          await this.safeSendEmail(
-            () =>
-              this.sendEmailService.sendOrderConfirmation(
-                userEmail,
+          // Compte non confirmé = achat invité (un compte classique doit
+          // confirmer son email avant de pouvoir se connecter et commander).
+          const isGuest = paidUser?.confirmed === false;
+          if (isGuest) {
+            const setupToken = await this.usersService.issueSetupToken(
+              paidUser?._id,
+            );
+            let invoicePdf: Buffer | null = null;
+            try {
+              invoicePdf = await this.invoiceService.buildInvoicePdf(
                 updatedCommande,
-              ),
-            `order ${updatedCommande.reference}`,
-          );
+                { includeLicenceKeys: true },
+              );
+            } catch {
+              this.logger.error(
+                `Echec de generation du recu PDF (${updatedCommande.reference})`,
+              );
+            }
+            await this.safeSendEmail(
+              () =>
+                this.sendEmailService.sendGuestOrderConfirmation(
+                  userEmail,
+                  updatedCommande,
+                  setupToken,
+                  invoicePdf,
+                ),
+              `guest-order ${updatedCommande.reference}`,
+            );
+          } else {
+            await this.safeSendEmail(
+              () =>
+                this.sendEmailService.sendOrderConfirmation(
+                  userEmail,
+                  updatedCommande,
+                ),
+              `order ${updatedCommande.reference}`,
+            );
+          }
         }
         // Notification push (no-op si l'utilisateur n'est pas abonné ou sans VAPID).
         const paidUserId = paidUser?._id?.toString();
@@ -837,6 +870,53 @@ export class CommandesService {
         'Erreur lors de la mise a jour du statut de la commande',
         error,
       );
+    }
+  }
+
+  // Reçu téléchargeable d'un achat invité, sans authentification : la
+  // possession de l'identifiant du PaymentIntent Stripe (connu du seul payeur)
+  // sert de preuve d'achat. Elle est vérifiée auprès de Stripe : le paiement
+  // doit être abouti et rattaché à cette commande (metadata.orderId).
+  async buildGuestReceipt(orderId: string, paymentIntentId: string) {
+    try {
+      if (
+        !isValidObjectId(orderId) ||
+        !String(paymentIntentId ?? '').startsWith('pi_')
+      ) {
+        return ApiResponse.error('Reçu indisponible');
+      }
+
+      const intent = await this.stripeService
+        .retrievePaymentIntent(paymentIntentId)
+        .catch(() => null);
+      if (
+        !intent ||
+        intent.status !== 'succeeded' ||
+        intent.metadata?.orderId !== orderId
+      ) {
+        return ApiResponse.error('Reçu indisponible');
+      }
+
+      const commande = await this.commandeModel
+        .findById(orderId)
+        .populate('user', 'firstName lastName email')
+        .populate('addresseFacturation', '-user')
+        .populate('abonnements.product', 'name slug')
+        .exec();
+      if (!commande || commande.statut !== StatutCommande.PAID) {
+        return ApiResponse.error('Reçu indisponible');
+      }
+
+      const pdf = await this.invoiceService.buildInvoicePdf(commande, {
+        includeLicenceKeys: true,
+      });
+      return ApiResponse.success('Reçu généré', {
+        pdf,
+        reference: commande.reference,
+      });
+    } catch (error) {
+      this.logger.error(error instanceof Error ? error.message : String(error));
+      return ApiResponse.error('Reçu indisponible');
     }
   }
 
