@@ -67,15 +67,24 @@ const isProduction = process.env.NODE_ENV === 'production';
     MongooseModule.forRootAsync({
       useFactory: async () => {
         console.log('[boot] 1a mongoose factory');
+        let hb = 0;
+        const iv = setInterval(() => console.log('[boot] hb ' + ++hb), 500);
+        setTimeout(() => clearInterval(iv), 22000);
         const raw = process.env.DATABASE_URL ?? '';
-        // Sur Vercel (Linux), la resolution SRV native fonctionne ; le
-        // contournement DNS -> URL directe n'est utile qu'en local Windows.
         const uri = process.env.VERCEL ? raw : await resolveAtlasUrl(raw);
-        console.log('[boot] 1b factory retour config (minimal)');
-        // Config MINIMALE identique au standalone qui fonctionne (~900ms).
+        console.log('[boot] 1b factory retour config');
         return {
           uri,
           serverSelectionTimeoutMS: 8000,
+          onConnectionCreate: (c: any) => {
+            console.log('[boot] 1c-created rs=' + c?.readyState);
+            return c;
+          },
+          connectionFactory: (c: any) => {
+            console.log('[boot] 1d-CONNECTED rs=' + c?.readyState);
+            clearInterval(iv);
+            return c;
+          },
         };
       },
     }),
