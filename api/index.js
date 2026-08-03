@@ -86,7 +86,13 @@ module.exports = async (req, res) => {
         bootstrapPromise = null;
       });
     }
-    return res.status(200).end(JSON.stringify({ kicked: true }));
+    // Attend sur CETTE instance pour laisser le bootstrap progresser, puis
+    // renvoie les points d'etape captures (meme instance, meme globalThis).
+    await new Promise((r) => setTimeout(r, 12000));
+    const boot = (globalThis.__logs || []).filter(
+      (l) => l.includes('boot') || l.includes('reject') || l.includes('rror'),
+    );
+    return res.status(200).end(JSON.stringify({ boot }));
   }
 
   // Court-circuit le preflight OPTIONS : répond immédiatement sans bootstrap.
