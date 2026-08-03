@@ -5,6 +5,7 @@ import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { HttpStatusInterceptor } from './shared/interceptors/http-status.interceptor';
 import { MongooseModule } from '@nestjs/mongoose';
+import { resolveAtlasUrl } from './shared/db/resolve-atlas-url';
 import { WinstonModule } from 'nest-winston';
 import * as winston from 'winston';
 import { UsersModule } from './features/users/users.module';
@@ -54,7 +55,24 @@ const isProduction = process.env.NODE_ENV === 'production';
     // strictes sont posées avec @Throttle sur les endpoints sensibles
     // (login, register, forgot-password, 2FA, contact).
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
-    MongooseModule.forRoot(`${process.env.DATABASE_URL}`),
+    // forRootAsync : l'URI est resolue AU MOMENT de la connexion. resolveAtlasUrl
+    // transforme mongodb+srv:// en mongodb:// direct (hotes resolus, parametres
+    // dedupliques -> plus d'« authSource » en double). Sur Vercel on garde l'URL
+    // SRV brute (resolveur natif Linux). autoIndex desactive sur Vercel (les
+    // index existent deja dans Atlas). retryAttempts pour la resilience.
+    MongooseModule.forRootAsync({
+      useFactory: async () => {
+        const raw = process.env.DATABASE_URL ?? '';
+        const uri = process.env.VERCEL ? raw : await resolveAtlasUrl(raw);
+        return {
+          uri,
+          autoIndex: !process.env.VERCEL,
+          serverSelectionTimeoutMS: 10000,
+          retryAttempts: 3,
+          retryDelay: 1500,
+        };
+      },
+    }),
     AnalyticsModule,
     UsersModule,
     AuditModule,

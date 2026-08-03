@@ -8,8 +8,8 @@ export class RegisterDto {
   @IsNotEmpty({ message: 'Email est obligatoire' })
   email: string;
   @ApiProperty()
-  @MinLength(6, {
-    message: 'Le mot de passe doit contenir au moins 6 caractères',
+  @MinLength(8, {
+    message: 'Le mot de passe doit contenir au moins 8 caractères',
   })
   @IsNotEmpty({ message: 'Mot de passe est obligatoire' })
   password: string;

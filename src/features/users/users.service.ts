@@ -103,7 +103,7 @@ export class UsersService {
       // Mot de passe aléatoire : l'utilisateur le définira via l'email de bienvenue.
       const randomPassword = await bcrypt.hash(
         `${randomUUID()}-${Date.now()}`,
-        10,
+        12,
       );
       const jti = randomUUID();
       const user = await this.userModel.create({
@@ -267,7 +267,7 @@ export class UsersService {
       if (changePasswordDto.newPassword) {
         changePasswordDto.newPassword = await bcrypt.hash(
           changePasswordDto.newPassword,
-          10,
+          12,
         );
       }
 

@@ -41,5 +41,5 @@ export class Coupon extends Document {
 }
 
 export const CouponSchema = SchemaFactory.createForClass(Coupon);
-
-CouponSchema.index({ code: 1 }, { unique: true });
+// L'index unique sur `code` est deja declare via @Prop({ unique: true }) ci-dessus.
+// Pas de schema.index() supplementaire pour eviter le warning "Duplicate schema index".
