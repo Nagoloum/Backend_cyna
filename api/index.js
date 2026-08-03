@@ -35,6 +35,41 @@ module.exports = async (req, res) => {
   // Teste une connexion Mongo DIRECTE (sans bootstrap Nest) et renvoie le
   // resultat/erreur en clair. Permet d'identifier la cause du 500 sans acceder
   // aux logs Vercel. A retirer une fois le probleme resolu.
+  // Diagnostic bootstrap Nest complet (avec timeout) : pointe si le demarrage
+  // pend et ou il echoue, independamment de la connexion Mongo directe.
+  if (req.url && req.url.includes('__diagboot')) {
+    res.setHeader('Content-Type', 'application/json');
+    const start = Date.now();
+    try {
+      const express2 = require('express');
+      const app = await Promise.race([
+        (async () => {
+          const a = await createNestApp(express2());
+          await a.init();
+          return a;
+        })(),
+        new Promise((_, r) =>
+          setTimeout(() => r(new Error('BOOTSTRAP_TIMEOUT_25s')), 25000),
+        ),
+      ]);
+      const mongoose = require('mongoose');
+      const ready = mongoose.connection.readyState;
+      await app.close().catch(() => {});
+      return res
+        .status(200)
+        .end(JSON.stringify({ ok: true, ms: Date.now() - start, mongoReadyState: ready }));
+    } catch (e) {
+      return res.status(200).end(
+        JSON.stringify({
+          ok: false,
+          ms: Date.now() - start,
+          error: e && e.message ? e.message : String(e),
+          stack: e && e.stack ? e.stack.split('\n').slice(0, 6) : null,
+        }),
+      );
+    }
+  }
+
   if (req.url && req.url.includes('__diag')) {
     const start = Date.now();
     const mask = (u) => (u || '').replace(/\/\/([^:]+):[^@]+@/, '//$1:***@');
