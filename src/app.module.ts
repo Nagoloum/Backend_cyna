@@ -66,25 +66,19 @@ const isProduction = process.env.NODE_ENV === 'production';
     // api/index.js reinitialise et reessaie.
     MongooseModule.forRootAsync({
       useFactory: async () => {
-        console.log('[boot] 1a mongoose factory');
-        let hb = 0;
-        const iv = setInterval(() => console.log('[boot] hb ' + ++hb), 500);
-        setTimeout(() => clearInterval(iv), 22000);
         const raw = process.env.DATABASE_URL ?? '';
+        // Sur Vercel (Linux) : URL SRV brute + resolveur DNS natif.
         const uri = process.env.VERCEL ? raw : await resolveAtlasUrl(raw);
-        console.log('[boot] 1b factory retour config');
         return {
           uri,
           serverSelectionTimeoutMS: 8000,
-          onConnectionCreate: (c: any) => {
-            console.log('[boot] 1c-created rs=' + c?.readyState);
-            return c;
-          },
-          connectionFactory: (c: any) => {
-            console.log('[boot] 1d-CONNECTED rs=' + c?.readyState);
-            clearInterval(iv);
-            return c;
-          },
+          // lazyConnection : Nest cree la connexion mais NE BLOQUE PAS le
+          // bootstrap en l'attendant. En serverless, attendre la connexion
+          // pendant l'instanciation concurrente des modules la laissait bloquee
+          // en readyState=2 (jamais resolue) -> 500. Avec lazyConnection, l'app
+          // demarre immediatement, la connexion s'etablit en arriere-plan
+          // (~850ms, verifie) et les requetes bufferisent jusqu'a la connexion.
+          lazyConnection: true,
         };
       },
     }),
