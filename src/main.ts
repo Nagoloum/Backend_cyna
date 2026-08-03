@@ -89,9 +89,14 @@ export async function createNestApp(
   app.useLogger(app.get(WINSTON_MODULE_NEST_PROVIDER));
 
   // === Swagger Configuration ===
-  // Actif par défaut (la doc est déployée sur Vercel) ; mettre
-  // SWAGGER_ENABLED=false pour la couper en production si besoin.
-  if (process.env.SWAGGER_ENABLED !== 'false') {
+  // Desactive par defaut sur Vercel : la generation du document Swagger scanne
+  // toutes les routes/DTO a CHAQUE demarrage a froid serverless, ce qui est
+  // couteux et suspecte de bloquer le bootstrap. Pour l'activer sur Vercel,
+  // definir explicitement SWAGGER_ENABLED=true. En local, actif par defaut.
+  const swaggerEnabled = process.env.VERCEL
+    ? process.env.SWAGGER_ENABLED === 'true'
+    : process.env.SWAGGER_ENABLED !== 'false';
+  if (swaggerEnabled) {
     const config = new DocumentBuilder()
       .setTitle('CYNA API')
       .setDescription('The CYNA API description')
