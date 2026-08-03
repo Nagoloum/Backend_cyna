@@ -31,6 +31,48 @@ async function bootstrap() {
 module.exports = async (req, res) => {
   const origin = req.headers['origin'];
 
+  // ── Diagnostic connexion base de donnees (temporaire) ────────────────────
+  // Teste une connexion Mongo DIRECTE (sans bootstrap Nest) et renvoie le
+  // resultat/erreur en clair. Permet d'identifier la cause du 500 sans acceder
+  // aux logs Vercel. A retirer une fois le probleme resolu.
+  if (req.url && req.url.includes('__diag')) {
+    const start = Date.now();
+    const mask = (u) => (u || '').replace(/\/\/([^:]+):[^@]+@/, '//$1:***@');
+    res.setHeader('Content-Type', 'application/json');
+    try {
+      const dns = require('dns');
+      dns.setServers(['8.8.8.8', '1.1.1.1']);
+      const mongoose = require('mongoose');
+      const uri = process.env.DATABASE_URL || '';
+      const conn = await mongoose
+        .createConnection(uri, { serverSelectionTimeoutMS: 8000 })
+        .asPromise();
+      const users = await conn.db.collection('users').countDocuments();
+      await conn.close();
+      return res.status(200).end(
+        JSON.stringify({
+          ok: true,
+          ms: Date.now() - start,
+          users,
+          uri: mask(uri),
+          vercel: !!process.env.VERCEL,
+          node: process.version,
+        }),
+      );
+    } catch (e) {
+      return res.status(200).end(
+        JSON.stringify({
+          ok: false,
+          ms: Date.now() - start,
+          error: e && e.message ? e.message : String(e),
+          code: e && e.code ? e.code : null,
+          uri_present: !!process.env.DATABASE_URL,
+          uri: mask(process.env.DATABASE_URL || ''),
+        }),
+      );
+    }
+  }
+
   // Positionne les en-têtes CORS dès l'entrée dans la fonction serverless,
   // avant que Vercel ou NestJS ne puisse les écraser / vider.
   if (origin && ALLOWED_ORIGINS.has(origin)) {
