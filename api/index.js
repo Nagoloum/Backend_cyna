@@ -8,6 +8,27 @@
 // L'app est bootstrappée UNE SEULE FOIS puis mise en cache entre les
 // invocations, pour réutiliser la connexion MongoDB (important en serverless).
 
+// Capture des erreurs fatales non catchables (uncaughtException /
+// unhandledRejection) AVANT tout le reste : sans handler, elles tuent le
+// process (-> FUNCTION_INVOCATION_FAILED opaque). On les enregistre pour les
+// exposer via /__fatal et diagnostiquer un crash de bootstrap.
+if (!globalThis.__fatalHooked) {
+  globalThis.__fatalHooked = true;
+  globalThis.__fatal = null;
+  const rec = (type) => (e) => {
+    globalThis.__fatal = {
+      type,
+      msg: e && e.message ? e.message : String(e),
+      stack: e && e.stack ? String(e.stack).split('\n').slice(0, 8) : null,
+      at: Date.now(),
+    };
+    // eslint-disable-next-line no-console
+    console.error(`[FATAL ${type}]`, e && e.stack ? e.stack : e);
+  };
+  process.on('uncaughtException', rec('uncaughtException'));
+  process.on('unhandledRejection', rec('unhandledRejection'));
+}
+
 const express = require('express');
 const { createNestApp } = require('../dist/main');
 
@@ -35,6 +56,14 @@ module.exports = async (req, res) => {
   // Teste une connexion Mongo DIRECTE (sans bootstrap Nest) et renvoie le
   // resultat/erreur en clair. Permet d'identifier la cause du 500 sans acceder
   // aux logs Vercel. A retirer une fois le probleme resolu.
+  // Renvoie la derniere erreur fatale capturee (crash de bootstrap).
+  if (req.url && req.url.includes('__fatal')) {
+    res.setHeader('Content-Type', 'application/json');
+    return res
+      .status(200)
+      .end(JSON.stringify({ fatal: globalThis.__fatal || null }));
+  }
+
   // Diagnostic : teste mongoose.connect (connexion PAR DEFAUT, exactement ce
   // qu'utilise MongooseModule) avec l'URL brute, comme le fait Nest sur Vercel.
   if (req.url && req.url.includes('__diagconnect')) {
