@@ -1,6 +1,12 @@
 import * as dns from 'dns';
 
-dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1', '1.0.0.1']);
+// Force des serveurs DNS publics UNIQUEMENT en local (Windows) ou la resolution
+// SRV native d'Atlas echoue. Sur Vercel (Linux), le resolveur natif fonctionne
+// et forcer 8.8.8.8 fait PENDRE la resolution SRV du driver mongo au demarrage
+// (connexion bloquee en readyState=2). On laisse donc le DNS natif sur Vercel.
+if (!process.env.VERCEL) {
+  dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1', '1.0.0.1']);
+}
 
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
